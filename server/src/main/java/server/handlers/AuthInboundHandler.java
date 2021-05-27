@@ -6,6 +6,7 @@ import server.Server;
 import server.model.User;
 import server.service.DBConnection;
 
+import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -40,7 +41,7 @@ public class AuthInboundHandler extends ChannelInboundHandlerAdapter {
         handleSignInSignUp(ctx, String.valueOf(msg));
     }
 
-    private void handleSignInSignUp(ChannelHandlerContext ctx, String command) throws SQLException {
+    private void handleSignInSignUp(ChannelHandlerContext ctx, String command) throws Exception {
         String[] formatCommand = command.split(" ");
         if(formatCommand.length == 3) {
             String login = formatCommand[1];
@@ -63,7 +64,11 @@ public class AuthInboundHandler extends ChannelInboundHandlerAdapter {
             if(resultQuery.startsWith("OK")) {
                 ctx.channel().pipeline().remove(this);
                 ctx.channel().pipeline().addLast("commandInboundHandler", new CommandInboundHandler());
+                User user = new User(login);
                 Server.subscribeUser(ctx.channel(), new User(login));
+                if(!Files.exists(user.getHomeDir())) {
+                    Files.createDirectory(user.getHomeDir());
+                }
                 String message = command.startsWith(SIGN_IN) ? "signInOK" : "signUpOK";
                 ctx.channel().writeAndFlush(message);
             } else {
