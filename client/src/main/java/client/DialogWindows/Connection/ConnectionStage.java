@@ -5,6 +5,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
@@ -21,14 +22,6 @@ public class ConnectionStage extends Stage {
 
     public void setDialogResult(ButtonType dialogResult) {
         this.dialogResult = dialogResult;
-    }
-
-    public String getIPAddress() {
-        return controller.getIPAddress();
-    }
-
-    public int getPort() {
-        return controller.getPort();
     }
 
     public String getLogin() {

@@ -1,9 +1,9 @@
 package client.MainWindow.table;
 
 import client.MainClientApp;
-import client.MainWindow.fileinfos.FileInfo;
-import client.MainWindow.fileinfos.FileNameType;
-import client.MainWindow.fileinfos.FileType;
+import client.model.FileInfo;
+import client.model.FileNameType;
+import client.model.FileType;
 import javafx.beans.binding.Bindings;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;

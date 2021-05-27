@@ -1,4 +1,4 @@
-package client.MainWindow.fileinfos;
+package client.model;
 
 public enum FileType {
     File,
