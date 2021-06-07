@@ -1,17 +1,18 @@
 package server.model;
 
+import server.Server;
+
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.io.*;
 
 public class User {
     private Path currentDir;
-    private Path homeDir;
-    private String login;
+    private final String login;
 
     public User(String login) {
         this.login = login;
-        this.homeDir = Paths.get(login);
+        currentDir = getHomeDir();
     }
 
     public void setCurrentDir(Path currentDir) {
@@ -23,7 +24,7 @@ public class User {
     }
 
     public Path getHomeDir() {
-        return homeDir;
+        return Paths.get(Server.SERVER_FOLDER, login);
     }
 
     public String getLogin() {
@@ -31,10 +32,7 @@ public class User {
     }
 
     public String getPrompt() {
-        String result = "~" + File.separator;
-        if(!currentDir.equals(homeDir)) {
-            result += homeDir.relativize(currentDir).toString();
-        }
-        return result;
+        return currentDir.toString().substring(
+                (Server.SERVER_FOLDER + File.separator).length());
     }
 }

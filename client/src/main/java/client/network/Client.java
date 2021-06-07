@@ -1,121 +1,67 @@
 package client.network;
 
-import client.interfaces.Callback0;
-import client.interfaces.Callback1;
+import client.interfaces.*;
 import client.network.handlers.*;
-import client.interfaces.Callback;
-import client.model.FileInfo;
+import client.network.handlers.SignHandler;
+import interop.model.fileinfo.*;
+import interop.model.requests.*;
+import interop.model.requests.fileoperation.*;
+import interop.model.requests.sign.*;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.codec.string.StringDecoder;
-import io.netty.handler.codec.string.StringEncoder;
+import io.netty.handler.codec.serialization.*;
 
+import java.io.File;
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.stream.Collectors;
 
+/**
+ * Главный класс, ответственный за взаимодействие с сервером
+ */
 public class Client {
 
     private static final String HOST = "localhost";
     private static final int PORT = 5678;
 
     private Channel channel;
-    private Callback0 channelActive;
-    private Callback0 clientAuthorizedCallback;
-    private Callback<String> authErrorCallback;
-    private Callback1<FileInfo[], String> readedFileInfoFromServer;
-    private Callback<FileInfo> createdDirOnServer;
-    private Callback<FileInfo> createdFileOnServer;
-    private Callback<FileInfo> renamedFileOnServer;
-    private Callback0 deletedFileOnServer;
-    private StringEncoder stringEncoder;
-    private StringDecoder stringDecoder;
-    private AuthInboundHandler authInboundHandler;
-    private FileWalksHandler fileWalksHandler;
-    private CommandHandler commandHandler;
+    private static Presentable presentable;
+    private UploadHandler uploadHandler;
+    private DownloadHandler downloadHandler;
 
-    public Client() {
-        stringEncoder = new StringEncoder();
-        stringDecoder = new StringDecoder();
-        authInboundHandler = new AuthInboundHandler();
-        authInboundHandler.setAuthOKCallback(Client.this::authOKCallback);
-        authInboundHandler.setErrorCallback(Client.this::authErrorCallback);
-        authInboundHandler.setChannelActive(Client.this::channelActive);
-        fileWalksHandler = new FileWalksHandler();
-        fileWalksHandler.setReadedFileInfoFromServer(Client.this::readedFileInfoFromServer);
-        commandHandler = new CommandHandler();
-        commandHandler.setCreatedDir(Client.this::createdDirOnServer);
-        commandHandler.setCreatedFile(Client.this::createdFileOnServer);
-        commandHandler.setRenameFile(Client.this::renamedFileOnServer);
-        commandHandler.setDeletedFile(Client.this::deletedFileOnServer);
+    public static Presentable getPresentable() {
+        return presentable;
     }
 
-    public void setChannelActive(Callback0 channelActive) {
-        this.channelActive = channelActive;
+    public Client(Presentable presentable) {
+        Client.presentable = presentable;
     }
 
-    public void setDeletedFileOnServer(Callback0 deletedFileOnServer) {
-        this.deletedFileOnServer = deletedFileOnServer;
-    }
-
-    public void setRenamedFileOnServer(Callback<FileInfo> renamedFileOnServer) {
-        this.renamedFileOnServer = renamedFileOnServer;
-    }
-
-    public void setCreatedFileOnServer(Callback<FileInfo> createdFileOnServer) {
-        this.createdFileOnServer = createdFileOnServer;
-    }
-
-    public void setCreatedDirOnServer(Callback<FileInfo> createdDirOnServer) {
-        this.createdDirOnServer = createdDirOnServer;
-    }
-
-    public void setClientAuthorizedCallback(Callback0 clientAuthorizedCallback) {
-        this.clientAuthorizedCallback = clientAuthorizedCallback;
-    }
-
-    public void setReadedFileInfo(Callback1<FileInfo[], String> readedFileInfoFromServer) {
-        this.readedFileInfoFromServer = readedFileInfoFromServer;
-    }
-
-    public void setAuthErrorCallback(Callback<String> authErrorCallback) {
-        this.authErrorCallback = authErrorCallback;
-    }
-
+    /**
+     * Соединение с сервером
+     */
     public void connect() {
         Thread thread = new Thread(() -> {
             try {
                 start();
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                presentable.exceptionCaught(e);
             }
         });
         thread.start();
     }
 
-
     /**
      * Запуск соединения с сервером
-     * Изначально в pipeline добавляются три обработчика:
-     *     StringEncoder
-     *     StringDecoder
-     *     AuthInboundHandler
      *
-     * Если клиент успешно проходит аутентификацию, то AuthInboundHandler удаляется.
-     * Далее идет запрос на сервер на получение списка файлов в текущей директории на сервере.
-     * Для этого вставляется FileWalksHandler, ответственный за декодирование списка
-     * файлов от сервера (преобразование от String к FileInfo[]). После преобразования списка файлов
-     * обработчик FileWalksHandler удаляется.
-     *
-     * Далее каждый раз при отправке на сервер команд по перемещению будет вставляться FileWalksHandler
-     * При отправке команд по удалению, созданию, переименовыванию будет вставляться CommandHandler, который при
-     * завершении работы тоже будет удаляться
-     *
-     * @throws InterruptedException
+     * @throws InterruptedException ошибки прерывания
      */
     private void start() throws InterruptedException {
         EventLoopGroup group = new NioEventLoopGroup();
@@ -126,118 +72,200 @@ public class Client {
                     .remoteAddress(new InetSocketAddress(HOST, PORT))
                     .handler(new ChannelInitializer<SocketChannel>() {
                         @Override
-                        protected void initChannel(SocketChannel socketChannel) throws Exception {
+                        protected void initChannel(SocketChannel socketChannel) {
                             channel = socketChannel;
-                            channel.pipeline().addLast("stringEncoder", stringEncoder);
-                            channel.pipeline().addLast("stringDecoder", stringDecoder);
-                            channel.pipeline().addLast("authInboundHandler", authInboundHandler);
+                            channel.pipeline().addLast(new ObjectEncoder());
+                            channel.pipeline().addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
+                            channel.pipeline().addLast(new SignHandler());
+                            channel.pipeline().addLast(new ChangeDirHandler());
+                            channel.pipeline().addLast(new FileChangeHandler());
+                            uploadHandler = new UploadHandler();
+                            downloadHandler = new DownloadHandler();
+                            channel.pipeline().addLast(uploadHandler);
+                            channel.pipeline().addLast(downloadHandler);
+                            channel.pipeline().addLast(new SearchHandler());
+                            channel.pipeline().addLast(new ErrorHandler());
                         }
                     });
-            ChannelFuture channelFuture = bootstrap.connect().sync();
+            ChannelFuture channelFuture = bootstrap.connect().addListener(future -> presentable.channelActivated()).sync();
             channelFuture.channel().closeFuture().sync();
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            presentable.exceptionCaught(e);
         } finally {
             System.out.println("Соединение закрыто");
             group.shutdownGracefully().sync();
         }
     }
 
-    private void channelActive() {
-        if(channelActive != null) {
-            channelActive.call();
-        }
-    }
+    // -------------------- Отправка запросов на сервер --------------------
 
+    /**
+     * Запрос на аутентификацию
+     * @param login логин
+     * @param password пароль
+     */
     public void authentication(String login, String password) {
-        sendMessage("signIn " + login + " " + password);
+        SignIn request = new SignIn(login, password);
+        channel.writeAndFlush(request);
     }
 
+    /**
+     * Запрос на регистрацию
+     * @param login логин
+     * @param password пароль
+     */
     public void registration(String login, String password) {
-        sendMessage("signUp " + login + " " + password);
+        SignUp request = new SignUp(login, password);
+        channel.writeAndFlush(request);
     }
 
-    public void createDir(String dirName) {
-        channel.pipeline().addLast("commandHandler", commandHandler);
-        sendMessage("mkdir " + dirName);
+    /**
+     * Запрос на изменение текущей директории
+     * @param path путь к новой директории
+     */
+    public void changeDir(String path) {
+        ChangeDir request = new ChangeDir(path);
+        channel.writeAndFlush(request);
     }
 
-    private void createdDirOnServer(FileInfo fileInfo) {
-        channel.pipeline().remove("commandHandler");
-        if(createdDirOnServer != null) {
-            createdDirOnServer.call(fileInfo);
-        }
+    /**
+     * Запрос на создание нового файла
+     * @param fileName имя файла
+     * @param fileType тип файла (директория или обычный файл)
+     */
+    public void createFile(String fileName, FileType fileType) {
+        CreateFile request = new CreateFile(fileName, fileType);
+        channel.writeAndFlush(request);
     }
 
-    public void createFile(String fileName) {
-        channel.pipeline().addLast("commandHandler", commandHandler);
-        sendMessage("touch " + fileName);
-    }
-
-    private void createdFileOnServer(FileInfo fileInfo) {
-        channel.pipeline().remove("commandHandler");
-        if(createdFileOnServer != null) {
-            createdFileOnServer.call(fileInfo);
-        }
-    }
-
+    /**
+     * Запрос на переименование файла
+     * @param oldFileName старое название файла
+     * @param newFileName новое название файла
+     */
     public void renameFile(String oldFileName, String newFileName) {
-        channel.pipeline().addLast("commandHandler", commandHandler);
-        sendMessage("rename " + oldFileName + " " + newFileName);
+        RenameFile request = new RenameFile(oldFileName, newFileName);
+        channel.writeAndFlush(request);
     }
 
-    private void renamedFileOnServer(FileInfo newFileInfo) {
-        channel.pipeline().remove("commandHandler");
-        if(renamedFileOnServer != null) {
-            renamedFileOnServer.call(newFileInfo);
-        }
-    }
-
+    /**
+     * Запрос на удаление файла
+     * @param fileName имя удаляемого файла
+     */
     public void deleteFile(String fileName) {
-        channel.pipeline().addLast("commandHandler", commandHandler);
-        sendMessage("delete " + fileName);
+        DeleteFile request = new DeleteFile(fileName);
+        channel.writeAndFlush(request);
     }
 
-    private void deletedFileOnServer() {
-        channel.pipeline().remove("commandHandler");
-        if(deletedFileOnServer != null) {
-            deletedFileOnServer.call();
+    /**
+     * Запрос на загрузку файла на удаленный сервер
+     * @param path путь к загружаемому файлу
+     */
+    public void uploadFile(Path path) {
+        List<File> fullListForClient = new LinkedList<>();
+        List<FileInfo> fullListForServer = new LinkedList<>();
+
+
+        writeInListsFileInfo(path, fullListForClient, fullListForServer);
+
+        List<File> listRegularFilesForClient = fullListForClient.stream()
+                .filter(file -> !file.isDirectory() && file.length() != 0)
+                .collect(Collectors.toList());
+
+        uploadHandler.setUploadingFiles(listRegularFilesForClient);
+        UploadRequest request = new UploadRequest(fullListForServer);
+        channel.writeAndFlush(request);
+    }
+
+    /**
+     * Заполнение списка файлов для клиента и для сервера
+     * @param path путь к файлу
+     * @param listForClient список для клиента
+     * @param listForServer список для сервера
+     */
+    private void writeInListsFileInfo(Path path, List<File> listForClient, List<FileInfo> listForServer) {
+        try {
+            if(Files.isDirectory(path)) {
+                addToListForDirectory(path.toAbsolutePath(), listForClient, listForServer);
+            } else {
+                File file = path.toFile();
+                BasicFileAttributes attr = Files.readAttributes(path, BasicFileAttributes.class);
+                long createDate = attr.creationTime().toMillis();
+                listForServer.add(new RegularFile(file.getName(), file.lastModified(), file.length(), createDate));
+                listForClient.add(new File(file.getAbsolutePath()));
+            }
+        } catch (IOException ex) {
+            presentable.errorReceived(ex.getMessage());
         }
     }
 
-    public void changeServerDirectory(String path) {
-        channel.pipeline().addLast("fileWalksHandler", fileWalksHandler);
-        sendMessage("cd " + path);
+    /**
+     * Добавление в список для клиента и сервера
+     * @param path путь к файлу
+     * @param listForClient список для клиента
+     * @param listForServer список для сервера
+     * @throws IOException ошибки при чтении атрибутов
+     */
+    private void addToListForDirectory(Path path, List<File> listForClient, List<FileInfo> listForServer) throws IOException {
+        Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
+
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                File file = dir.toFile();
+                BasicFileAttributes attr = Files.readAttributes(path, BasicFileAttributes.class);
+                long createDate = attr.creationTime().toMillis();
+                FileInfo fileInfo = new Directory(path.getFileName().resolve(path.relativize(dir)).toString(),
+                        file.lastModified(), createDate);
+                listForServer.add(fileInfo);
+                listForClient.add(new File(dir.toFile().getAbsolutePath()));
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                BasicFileAttributes attr = Files.readAttributes(path, BasicFileAttributes.class);
+                long createDate = attr.creationTime().toMillis();
+                FileInfo fileInfo = new RegularFile(path.getFileName().resolve(path.relativize(file)).toString(),
+                        file.toFile().lastModified(), file.toFile().length(), createDate);
+                listForServer.add(fileInfo);
+                listForClient.add(new File(file.toFile().getAbsolutePath()));
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 
-    private void sendMessage(String message) {
-        if(channel != null) {
-            channel.writeAndFlush(message);
-        }
+    /**
+     * Запрос на загрузку файла из удаленного сервера
+     * @param clientDir текущий путь на стороне клиента
+     * @param serverFileName имя файла на сервере
+     */
+    public void downloadFile(Path clientDir, String serverFileName) {
+        downloadHandler.setCurrentClientDir(clientDir);
+        DownloadRequest request = new DownloadRequest(serverFileName);
+        channel.writeAndFlush(request);
     }
 
-    private void authOKCallback() {
-        if(clientAuthorizedCallback != null) {
-            clientAuthorizedCallback.call();
-        }
-        channel.pipeline().remove("authInboundHandler");
-        channel.pipeline().addLast("fileWalksHandler", fileWalksHandler);
-        channel.writeAndFlush("cd ~");
+    /**
+     * запрос на получение размера директории
+     * @param dirName имя директории
+     */
+    public void viewDirSize(String dirName) {
+        DirSizeReq request = new DirSizeReq(dirName);
+        channel.writeAndFlush(request);
     }
 
-    private void readedFileInfoFromServer(FileInfo[] fileInfos, String path) {
-        if(readedFileInfoFromServer != null) {
-            readedFileInfoFromServer.call(fileInfos, path);
-        }
-        channel.pipeline().remove("fileWalksHandler");
+    /**
+     * Запрос на поиск файла
+     * @param fileName имя файла
+     */
+    public void searchFile(String fileName) {
+        SearchRequest request = new SearchRequest(fileName);
+        channel.writeAndFlush(request);
     }
 
-    private void authErrorCallback(String message) {
-        if(authErrorCallback != null) {
-            authErrorCallback.call(message);
-        }
-    }
-
+    /**
+     * Отключение от сервера
+     */
     public void disconnect() {
         channel.close();
     }

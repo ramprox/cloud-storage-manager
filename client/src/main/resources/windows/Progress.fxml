@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.ProgressBar?>
+<VBox
+        xmlns:fx="http://javafx.com/fxml/1"
+        fx:controller="client.controllers.ProgressController">
+    <padding>
+        <Insets left="10" top="10" right="10" bottom="10"/>
+    </padding>
+    <Label fx:id="message"/>
+    <ProgressBar fx:id="progress" minWidth="300"/>
+</VBox>

@@ -16,7 +16,7 @@
 <?import javafx.scene.control.RadioButton?>
 <VBox
       xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="client.DialogWindows.Connection.ConnectionController">
+      fx:controller="client.controllers.ConnectionController">
     <padding>
         <Insets left="10" top="10" right="10" bottom="10"/>
     </padding>
@@ -34,12 +34,6 @@
                 <RowConstraints />
             </rowConstraints>
             <children>
-                <!--Label text="IP address:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
-                <TextField fx:id="ipAddress" GridPane.columnIndex="1" GridPane.fillWidth="true" GridPane.rowIndex="0"
-                           text="localhost"/>
-                <Label text="Port:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
-                <TextField fx:id="port" GridPane.columnIndex="1" GridPane.rowIndex="1"
-                           text="5678"/-->
                 <Label text="Login:" GridPane.columnIndex="0" GridPane.rowIndex="2" />
                 <TextField fx:id="login" GridPane.columnIndex="1" GridPane.rowIndex="2" />
                 <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="3" />

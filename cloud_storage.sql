@@ -47,56 +47,6 @@ UNLOCK TABLES;
 --
 -- Dumping routines for database 'cloud_storage'
 --
-/*!50003 DROP FUNCTION IF EXISTS `SIGN_IN` */;
-/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
-/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
-/*!50003 SET @saved_col_connection = @@collation_connection */ ;
-/*!50003 SET character_set_client  = utf8 */ ;
-/*!50003 SET character_set_results = utf8 */ ;
-/*!50003 SET collation_connection  = utf8_general_ci */ ;
-/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
-/*!50003 SET sql_mode              = 'STRICT_TRANS_TABLES,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION' */ ;
-DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` FUNCTION `SIGN_IN`(login VARCHAR(20), pass VARCHAR(20)) RETURNS varchar(60) CHARSET utf8
-BEGIN
-	DECLARE count INT DEFAULT 0;
-	SELECT COUNT(*) INTO count FROM users WHERE users.login = login AND users.password = pass;
-    IF(count = 0) THEN
-		RETURN 'Incorrect login or password';
-	ELSE
-		RETURN 'OK';
-	END IF;
-END ;;
-DELIMITER ;
-/*!50003 SET sql_mode              = @saved_sql_mode */ ;
-/*!50003 SET character_set_client  = @saved_cs_client */ ;
-/*!50003 SET character_set_results = @saved_cs_results */ ;
-/*!50003 SET collation_connection  = @saved_col_connection */ ;
-/*!50003 DROP FUNCTION IF EXISTS `SIGN_UP` */;
-/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
-/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
-/*!50003 SET @saved_col_connection = @@collation_connection */ ;
-/*!50003 SET character_set_client  = utf8 */ ;
-/*!50003 SET character_set_results = utf8 */ ;
-/*!50003 SET collation_connection  = utf8_general_ci */ ;
-/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
-/*!50003 SET sql_mode              = 'STRICT_TRANS_TABLES,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION' */ ;
-DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` FUNCTION `SIGN_UP`(login VARCHAR(20), pass VARCHAR(20)) RETURNS varchar(60) CHARSET utf8
-BEGIN
-	DECLARE EXIT HANDLER FOR 1062
-		RETURN CONCAT('User with login ', login, ' already exist');
-	IF(pass = '' OR login = '') THEN
-		RETURN 'Password and login must not be empty';
-	END IF;
-    INSERT INTO users VALUES(login, pass);
-	RETURN 'OK';
-END ;;
-DELIMITER ;
-/*!50003 SET sql_mode              = @saved_sql_mode */ ;
-/*!50003 SET character_set_client  = @saved_cs_client */ ;
-/*!50003 SET character_set_results = @saved_cs_results */ ;
-/*!50003 SET collation_connection  = @saved_col_connection */ ;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -107,4 +57,4 @@ DELIMITER ;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2021-05-27 18:38:09
+-- Dump completed on 2021-06-06  5:15:24
