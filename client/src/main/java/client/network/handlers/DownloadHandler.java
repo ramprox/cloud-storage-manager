@@ -128,6 +128,12 @@ public class DownloadHandler extends SimpleChannelInboundHandler<Message> {
         }
     }
 
+    /**
+     * Происходит при ошибках в канале
+     * @param ctx контекст канала
+     * @param cause исключение - причина ошибки
+     * @throws Exception может произойти при ошибках в канале
+     */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         if(fos != null) {
