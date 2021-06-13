@@ -127,4 +127,13 @@ public class DownloadHandler extends SimpleChannelInboundHandler<Message> {
             presentable.downloadDone(destinationDir.toString());
         }
     }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        if(fos != null) {
+            fos.close();
+        }
+        Presentable presentable = Client.getPresentable();
+        presentable.exceptionCaught(cause);
+    }
 }

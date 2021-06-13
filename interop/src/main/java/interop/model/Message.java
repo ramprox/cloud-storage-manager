@@ -4,6 +4,11 @@ import interop.Command;
 
 import java.io.Serializable;
 
+/**
+ * Класс для обмена сообщениями между сервером и клиентом
+ * поле command содержит команду
+ * поле data содержит данные для обмена
+ */
 public class Message implements Serializable {
     private Command command;
     private Object data;
