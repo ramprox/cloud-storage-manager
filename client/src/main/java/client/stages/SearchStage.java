@@ -22,15 +22,19 @@ public class SearchStage extends Stage {
         controller.addItems(files);
     }
 
-    public SearchStage() throws IOException {
-        setTitle("Поиск");
-        FXMLLoader loader = new FXMLLoader(MainClientApp.class.getResource("/windows/SearchFiles.fxml"));
-        Parent root = loader.load();
-        controller = loader.getController();
-        controller.init();
-        Scene scene = new Scene(root);
-        setScene(scene);
-        setResizable(false);
-        sizeToScene();
+    public SearchStage() {
+        try {
+            setTitle("Поиск");
+            FXMLLoader loader = new FXMLLoader(MainClientApp.class.getResource("/windows/SearchFiles.fxml"));
+            Parent root = loader.load();
+            controller = loader.getController();
+            controller.init();
+            Scene scene = new Scene(root);
+            setScene(scene);
+            setResizable(false);
+            sizeToScene();
+        } catch (IOException ex) {
+            System.out.println("Внутренняя ошибка");
+        }
     }
 }

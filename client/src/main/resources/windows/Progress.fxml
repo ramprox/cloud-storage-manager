@@ -4,6 +4,10 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.control.ProgressBar?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
 <VBox
         xmlns:fx="http://javafx.com/fxml/1"
         fx:controller="client.controllers.ProgressController">
@@ -11,5 +15,17 @@
         <Insets left="10" top="10" right="10" bottom="10"/>
     </padding>
     <Label fx:id="message"/>
+    <GridPane>
+        <columnConstraints>
+            <ColumnConstraints percentWidth="80"/>
+            <ColumnConstraints percentWidth="20"/>
+        </columnConstraints>
+        <AnchorPane GridPane.columnIndex="0" GridPane.hgrow="ALWAYS" fx:id="pane">
+            <Label textOverrun="LEADING_ELLIPSIS" fx:id="fileName" prefWidth="${pane.width}"/>
+        </AnchorPane>
+        <AnchorPane prefWidth="30" GridPane.columnIndex="1">
+            <Label fx:id="percent" text="100%" AnchorPane.rightAnchor="0"/>
+        </AnchorPane>
+    </GridPane>
     <ProgressBar fx:id="progress" minWidth="300"/>
 </VBox>

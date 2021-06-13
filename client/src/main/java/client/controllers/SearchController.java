@@ -1,9 +1,7 @@
 package client.controllers;
 
-import client.MainClientApp;
 import client.model.FileInfoView;
 import client.utils.ApplicationUtil;
-import client.utils.Comparators;
 import interop.model.fileinfo.FileType;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
@@ -26,7 +24,7 @@ public class SearchController {
      */
     public void addItems(Collection<? extends FileInfoView> list) {
         foundedFiles.getItems().addAll(list);
-        FXCollections.sort(foundedFiles.getItems(), Comparators.comparatorByName(TableColumn.SortType.ASCENDING));
+        FXCollections.sort(foundedFiles.getItems(), FileInfoView.comparatorByName(TableColumn.SortType.ASCENDING));
         foundedFiles.refresh();
     }
 
@@ -47,14 +45,14 @@ public class SearchController {
             if(item != null) {
                 Label label = new Label();
                 ImageView imageViewDir = null;
-                if(item.getType().equals(FileType.DIR)) {
+                if(item.getFileInfo().getType() == FileType.DIR) {
                     imageViewDir = new ImageView(ApplicationUtil.IMG_DIRECTORY);
-                } else if(item.getType().equals(FileType.FILE)) {
+                } else if(item.getFileInfo().getType() == FileType.FILE) {
                     imageViewDir = new ImageView(ApplicationUtil.IMG_FILE);
                 }
                 label.setGraphic(imageViewDir);
                 label.setAlignment(Pos.CENTER_LEFT);
-                label.setText(item.getName());
+                label.setText(item.getFileInfo().getFileName());
                 setGraphic(label);
             }
         }

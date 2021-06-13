@@ -8,50 +8,40 @@
 <?import javafx.scene.layout.ColumnConstraints?>
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.Pane?>
 <?import javafx.scene.layout.RowConstraints?>
 <?import javafx.scene.layout.VBox?>
-
 <?import javafx.scene.layout.StackPane?>
-<?import javafx.scene.control.RadioButton?>
 <VBox
-      xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="client.controllers.ConnectionController">
+        xmlns:fx="http://javafx.com/fxml/1"
+        fx:controller="client.controllers.ConnectionController">
     <padding>
         <Insets left="10" top="10" right="10" bottom="10"/>
     </padding>
-    <children>
-        <GridPane vgap="5" hgap="5">
-            <columnConstraints>
-                <ColumnConstraints hgrow="NEVER" minWidth="100.0"/>
-                <ColumnConstraints hgrow="ALWAYS" />
-            </columnConstraints>
-            <rowConstraints>
-                <RowConstraints />
-                <RowConstraints />
-                <RowConstraints />
-                <RowConstraints />
-                <RowConstraints />
-            </rowConstraints>
-            <children>
-                <Label text="Login:" GridPane.columnIndex="0" GridPane.rowIndex="2" />
-                <TextField fx:id="login" GridPane.columnIndex="1" GridPane.rowIndex="2" />
-                <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="3" />
-                <PasswordField fx:id="password" GridPane.columnIndex="1" GridPane.rowIndex="3" />
-            </children>
-            <opaqueInsets>
-                <Insets left="10" top="10" right="10" bottom="10"/>
-            </opaqueInsets>
-        </GridPane>
-        <HBox spacing="30">
-            <padding>
-                <Insets left="20" top="10" right="20"/>
-            </padding>
-            <Button text="Sign In" minWidth="70" onAction="#signInClickAction"/>
-            <Button text="Sign Up" minWidth="70" onAction="#signUpClickAction"/>
-            <StackPane alignment="CENTER_RIGHT" HBox.hgrow="ALWAYS">
-                <Button text="Cancel" minWidth="70" onAction="#cancelClickAction"/>
-            </StackPane>
-        </HBox>
-    </children>
+    <GridPane vgap="5" hgap="5">
+        <columnConstraints>
+            <ColumnConstraints hgrow="NEVER" minWidth="100.0"/>
+            <ColumnConstraints hgrow="ALWAYS"/>
+        </columnConstraints>
+        <rowConstraints>
+            <RowConstraints/>
+            <RowConstraints/>
+        </rowConstraints>
+        <opaqueInsets>
+            <Insets left="10" top="10" right="10" bottom="10"/>
+        </opaqueInsets>
+        <Label text="Login:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+        <TextField fx:id="login" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+        <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+        <PasswordField fx:id="password" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+    </GridPane>
+    <HBox spacing="30">
+        <padding>
+            <Insets left="20" top="10" right="20"/>
+        </padding>
+        <Button text="Sign In" minWidth="70" onAction="#signInClickAction"/>
+        <Button text="Sign Up" minWidth="70" onAction="#signUpClickAction"/>
+        <StackPane alignment="CENTER_RIGHT" HBox.hgrow="ALWAYS">
+            <Button text="Cancel" minWidth="70" onAction="#cancelClickAction"/>
+        </StackPane>
+    </HBox>
 </VBox>

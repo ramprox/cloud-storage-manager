@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.ComboBox?>
+<VBox xmlns="http://javafx.com/javafx/8.0.112"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="client.controllers.SideController">
+    <padding>
+        <Insets top="2" bottom="2" left="3"/>
+    </padding>
+    <HBox>
+        <ComboBox fx:id="drives" managed="${drives.visible}" onAction="#driveChanged">
+            <VBox.margin>
+                <Insets top="2" bottom="2"/>
+            </VBox.margin>
+        </ComboBox>
+        <HBox prefHeight="${currentPath.height}" HBox.hgrow="ALWAYS"
+              style="-fx-border-width: 1; -fx-border-style: solid; -fx-border-radius: 3;">
+            <HBox.margin>
+                <Insets top="2" bottom="2" left="3" right="3"/>
+            </HBox.margin>
+            <padding>
+                <Insets top="2" bottom="2" left="3" right="3"/>
+            </padding>
+            <Label fx:id="currentPath"/>
+        </HBox>
+    </HBox>
+    <TextField fx:id="searchTextField" HBox.hgrow="ALWAYS" promptText="Поиск..." onAction="#searchFile">
+        <VBox.margin>
+            <Insets top="2" bottom="2"/>
+        </VBox.margin>
+    </TextField>
+    <TableView fx:id="table" VBox.vgrow="ALWAYS" onMouseClicked="#clickOnTable">
+        <columns>
+            <TableColumn fx:id="nameColumn" text="Имя" minWidth="150"/>
+            <TableColumn fx:id="sizeColumn" text="Размер" minWidth="150"/>
+            <TableColumn fx:id="lastModifiedColumn" text="Дата изменения" minWidth="150"/>
+            <TableColumn fx:id="createDateColumn" text="Дата создания" minWidth="150"/>
+        </columns>
+    </TableView>
+</VBox>

@@ -3,10 +3,10 @@ package client.network;
 import client.interfaces.*;
 import client.network.handlers.*;
 import client.network.handlers.SignHandler;
+import client.utils.ApplicationUtil;
+import interop.Command;
+import interop.model.Message;
 import interop.model.fileinfo.*;
-import interop.model.requests.*;
-import interop.model.requests.fileoperation.*;
-import interop.model.requests.sign.*;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -28,13 +28,8 @@ import java.util.stream.Collectors;
  */
 public class Client {
 
-    private static final String HOST = "localhost";
-    private static final int PORT = 5678;
-
     private Channel channel;
     private static Presentable presentable;
-    private UploadHandler uploadHandler;
-    private DownloadHandler downloadHandler;
 
     public static Presentable getPresentable() {
         return presentable;
@@ -51,7 +46,7 @@ public class Client {
         Thread thread = new Thread(() -> {
             try {
                 start();
-            } catch (InterruptedException e) {
+            } catch (InterruptedException | IOException e) {
                 presentable.exceptionCaught(e);
             }
         });
@@ -63,36 +58,26 @@ public class Client {
      *
      * @throws InterruptedException ошибки прерывания
      */
-    private void start() throws InterruptedException {
+    private void start() throws InterruptedException, IOException {
         EventLoopGroup group = new NioEventLoopGroup();
         try {
             Bootstrap bootstrap = new Bootstrap();
             bootstrap.group(group)
                     .channel(NioSocketChannel.class)
-                    .remoteAddress(new InetSocketAddress(HOST, PORT))
+                    .remoteAddress(new InetSocketAddress(ApplicationUtil.HOST, ApplicationUtil.PORT))
                     .handler(new ChannelInitializer<SocketChannel>() {
                         @Override
                         protected void initChannel(SocketChannel socketChannel) {
                             channel = socketChannel;
                             channel.pipeline().addLast(new ObjectEncoder());
-                            channel.pipeline().addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
+                            channel.pipeline().addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(ClassLoader.getSystemClassLoader())));
                             channel.pipeline().addLast(new SignHandler());
-                            channel.pipeline().addLast(new ChangeDirHandler());
-                            channel.pipeline().addLast(new FileChangeHandler());
-                            uploadHandler = new UploadHandler();
-                            downloadHandler = new DownloadHandler();
-                            channel.pipeline().addLast(uploadHandler);
-                            channel.pipeline().addLast(downloadHandler);
-                            channel.pipeline().addLast(new SearchHandler());
                             channel.pipeline().addLast(new ErrorHandler());
                         }
                     });
-            ChannelFuture channelFuture = bootstrap.connect().addListener(future -> presentable.channelActivated()).sync();
+            ChannelFuture channelFuture = bootstrap.connect().sync();
             channelFuture.channel().closeFuture().sync();
-        } catch (InterruptedException e) {
-            presentable.exceptionCaught(e);
         } finally {
-            System.out.println("Соединение закрыто");
             group.shutdownGracefully().sync();
         }
     }
@@ -105,7 +90,10 @@ public class Client {
      * @param password пароль
      */
     public void authentication(String login, String password) {
-        SignIn request = new SignIn(login, password);
+        String[] data = new String[2];
+        data[0] = login;
+        data[1] = password;
+        Message request = new Message(Command.SIGN_IN, data);
         channel.writeAndFlush(request);
     }
 
@@ -115,7 +103,10 @@ public class Client {
      * @param password пароль
      */
     public void registration(String login, String password) {
-        SignUp request = new SignUp(login, password);
+        String[] data = new String[2];
+        data[0] = login;
+        data[1] = password;
+        Message request = new Message(Command.SIGN_UP, data);
         channel.writeAndFlush(request);
     }
 
@@ -124,133 +115,154 @@ public class Client {
      * @param path путь к новой директории
      */
     public void changeDir(String path) {
-        ChangeDir request = new ChangeDir(path);
+        Message request = new Message(Command.CHANGE_DIR, path);
         channel.writeAndFlush(request);
     }
 
     /**
      * Запрос на создание нового файла
-     * @param fileName имя файла
-     * @param fileType тип файла (директория или обычный файл)
+     * @param filePath путь нового файла
      */
-    public void createFile(String fileName, FileType fileType) {
-        CreateFile request = new CreateFile(fileName, fileType);
+    public void createFile(String filePath) {
+        Message request = new Message(Command.CREATE_FILE, filePath);
+        channel.writeAndFlush(request);
+    }
+
+    /**
+     * Запрос на создание новой директории на сервере
+     * @param filePath путь к новой директории
+     */
+    public void createDir(String filePath) {
+        Message request = new Message(Command.CREATE_DIR, filePath);
         channel.writeAndFlush(request);
     }
 
     /**
      * Запрос на переименование файла
-     * @param oldFileName старое название файла
-     * @param newFileName новое название файла
+     * @param oldFilePath путь к старому файлу
+     * @param newFilePath путь к новому файлу
      */
-    public void renameFile(String oldFileName, String newFileName) {
-        RenameFile request = new RenameFile(oldFileName, newFileName);
+    public void renameFile(String oldFilePath, String newFilePath) {
+        Object[] data = new Object[2];
+        data[0] = oldFilePath;
+        data[1] = newFilePath;
+        Message request = new Message(Command.RENAME, data);
         channel.writeAndFlush(request);
     }
 
     /**
      * Запрос на удаление файла
-     * @param fileName имя удаляемого файла
+     * @param filePath имя удаляемого файла
      */
-    public void deleteFile(String fileName) {
-        DeleteFile request = new DeleteFile(fileName);
+    public void deleteFile(String filePath) {
+        Message request = new Message(Command.DELETE, filePath);
         channel.writeAndFlush(request);
     }
 
     /**
      * Запрос на загрузку файла на удаленный сервер
-     * @param path путь к загружаемому файлу
+     * @param path путь на клиенте к загружаемому файлу
+     * @param serverCurrentPath путь на сервере куда необходимо загрузить файл
      */
-    public void uploadFile(Path path) {
-        List<File> fullListForClient = new LinkedList<>();
-        List<FileInfo> fullListForServer = new LinkedList<>();
+    public void uploadFile(Path path, Path serverCurrentPath) {
+        try {
+            List<File> fullListForClient = getFullListForClient(path);
+            List<FileInfo> fullListForServer = getFullListForServer(fullListForClient, path.getParent());
 
+            List<File> listRegularFilesForClient = fullListForClient.stream()
+                    .filter(file -> !file.isDirectory() && file.length() != 0)
+                    .collect(Collectors.toList());
 
-        writeInListsFileInfo(path, fullListForClient, fullListForServer);
-
-        List<File> listRegularFilesForClient = fullListForClient.stream()
-                .filter(file -> !file.isDirectory() && file.length() != 0)
-                .collect(Collectors.toList());
-
-        uploadHandler.setUploadingFiles(listRegularFilesForClient);
-        UploadRequest request = new UploadRequest(fullListForServer);
-        channel.writeAndFlush(request);
+            UploadHandler uploadHandler = channel.pipeline().get(UploadHandler.class);
+            uploadHandler.setUploadingFiles(listRegularFilesForClient);
+            Object[] data = new Object[2];
+            data[0] = serverCurrentPath.toString();
+            data[1] = fullListForServer;
+            Message request = new Message(Command.UPLOAD, data);
+            channel.writeAndFlush(request);
+        } catch (IOException ex) {
+            presentable.exceptionCaught(ex);
+        }
     }
 
     /**
-     * Заполнение списка файлов для клиента и для сервера
+     * Получение полного списка загружаемых файлов на сервер включая директории и файлы снулевым размером
      * @param path путь к файлу
-     * @param listForClient список для клиента
-     * @param listForServer список для сервера
+     * @return полный список файлов для загрузки на сервер
+     * @throws IOException ошибки при чтении атрибутов
      */
-    private void writeInListsFileInfo(Path path, List<File> listForClient, List<FileInfo> listForServer) {
-        try {
-            if(Files.isDirectory(path)) {
-                addToListForDirectory(path.toAbsolutePath(), listForClient, listForServer);
-            } else {
-                File file = path.toFile();
-                BasicFileAttributes attr = Files.readAttributes(path, BasicFileAttributes.class);
-                long createDate = attr.creationTime().toMillis();
-                listForServer.add(new RegularFile(file.getName(), file.lastModified(), file.length(), createDate));
-                listForClient.add(new File(file.getAbsolutePath()));
-            }
-        } catch (IOException ex) {
-            presentable.errorReceived(ex.getMessage());
+    private List<File> getFullListForClient(Path path) throws IOException {
+        List<File> result = new LinkedList<>();
+        if(Files.isDirectory(path)) {
+            result.addAll(getFullListForClientFromDirectory(path));
+        } else {
+            result.add(path.toFile());
         }
+        return result;
     }
 
     /**
      * Добавление в список для клиента и сервера
      * @param path путь к файлу
-     * @param listForClient список для клиента
-     * @param listForServer список для сервера
      * @throws IOException ошибки при чтении атрибутов
      */
-    private void addToListForDirectory(Path path, List<File> listForClient, List<FileInfo> listForServer) throws IOException {
+    private List<File> getFullListForClientFromDirectory(Path path) throws IOException {
+        List<File> result = new LinkedList<>();
         Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
-
             @Override
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                File file = dir.toFile();
-                BasicFileAttributes attr = Files.readAttributes(path, BasicFileAttributes.class);
-                long createDate = attr.creationTime().toMillis();
-                FileInfo fileInfo = new Directory(path.getFileName().resolve(path.relativize(dir)).toString(),
-                        file.lastModified(), createDate);
-                listForServer.add(fileInfo);
-                listForClient.add(new File(dir.toFile().getAbsolutePath()));
+                result.add(dir.toFile());
                 return FileVisitResult.CONTINUE;
             }
 
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                BasicFileAttributes attr = Files.readAttributes(path, BasicFileAttributes.class);
-                long createDate = attr.creationTime().toMillis();
-                FileInfo fileInfo = new RegularFile(path.getFileName().resolve(path.relativize(file)).toString(),
-                        file.toFile().lastModified(), file.toFile().length(), createDate);
-                listForServer.add(fileInfo);
-                listForClient.add(new File(file.toFile().getAbsolutePath()));
+                result.add(file.toFile());
                 return FileVisitResult.CONTINUE;
             }
         });
+        return result;
+    }
+
+    private List<FileInfo> getFullListForServer(List<File> listForClient, Path relativePath) throws IOException {
+        List<FileInfo> result = new LinkedList<>();
+        for(File file: listForClient) {
+            result.add(getFromFile(relativePath, file.toPath()));
+        }
+        return result;
+    }
+
+    private FileInfo getFromFile(Path relativePath, Path path) throws IOException {
+        BasicFileAttributes attr = Files.readAttributes(path, BasicFileAttributes.class);
+        FileType type = attr.isDirectory() ? FileType.DIR : FileType.FILE;
+        String fileName = relativePath.relativize(path).toString();
+        if(fileName.equals("")) {
+            fileName = path.getFileName().toString();
+        }
+        long size = type == FileType.DIR ? -1L : attr.size();
+        long lastModified = attr.lastModifiedTime().toMillis();
+        long createDate = attr.creationTime().toMillis();
+        return new FileInfo(type, fileName, size, lastModified, createDate);
     }
 
     /**
      * Запрос на загрузку файла из удаленного сервера
-     * @param clientDir текущий путь на стороне клиента
-     * @param serverFileName имя файла на сервере
+     * @param clientDir путь на стороне клиента куда необходимо загрузить файлы
+     * @param serverFilePath путь к файлу на сервере
      */
-    public void downloadFile(Path clientDir, String serverFileName) {
-        downloadHandler.setCurrentClientDir(clientDir);
-        DownloadRequest request = new DownloadRequest(serverFileName);
+    public void downloadFile(Path clientDir, String serverFilePath) {
+        DownloadHandler downloadHandler = channel.pipeline().get(DownloadHandler.class);
+        downloadHandler.setDestinationDir(clientDir);
+        Message request = new Message(Command.DOWNLOAD, serverFilePath);
         channel.writeAndFlush(request);
     }
 
     /**
      * запрос на получение размера директории
-     * @param dirName имя директории
+     * @param dirName путь к директории
      */
     public void viewDirSize(String dirName) {
-        DirSizeReq request = new DirSizeReq(dirName);
+        Message request = new Message(Command.GET_DIR_SIZE, dirName);
         channel.writeAndFlush(request);
     }
 
@@ -258,8 +270,11 @@ public class Client {
      * Запрос на поиск файла
      * @param fileName имя файла
      */
-    public void searchFile(String fileName) {
-        SearchRequest request = new SearchRequest(fileName);
+    public void searchFile(String startPath, String fileName) {
+        Object[] data = new Object[2];
+        data[0] = startPath;
+        data[1] = fileName;
+        Message request = new Message(Command.SEARCH, data);
         channel.writeAndFlush(request);
     }
 

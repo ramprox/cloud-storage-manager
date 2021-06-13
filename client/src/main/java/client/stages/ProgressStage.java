@@ -15,7 +15,7 @@ import java.io.IOException;
  */
 public class ProgressStage extends Stage {
 
-    private final ProgressController controller;
+    private ProgressController controller;
 
     public void setMessage(String message) {
         controller.setMessage(message);
@@ -25,15 +25,22 @@ public class ProgressStage extends Stage {
         controller.setProgress(progress);
     }
 
-    public ProgressStage(String title) throws IOException {
-        setTitle(title);
-        FXMLLoader loader = new FXMLLoader(MainClientApp.class.getResource("/windows/Progress.fxml"));
-        Parent root = loader.load();
-        controller = loader.getController();
-        Scene scene = new Scene(root);
-        setScene(scene);
-        setResizable(false);
-        sizeToScene();
-        initModality(Modality.APPLICATION_MODAL);
+    public void setFileName(String fileName) {
+        controller.setFileName(fileName);
+    }
+
+    public ProgressStage(String title) {
+        try {
+            setTitle(title);
+            FXMLLoader loader = new FXMLLoader(MainClientApp.class.getResource("/windows/Progress.fxml"));
+            Parent root = loader.load();
+            controller = loader.getController();
+            Scene scene = new Scene(root);
+            setScene(scene);
+            setResizable(false);
+            sizeToScene();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
     }
 }

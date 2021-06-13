@@ -1,127 +1,63 @@
 package client.controllers;
 
+import client.interfaces.SideEventsProcessable;
 import client.stages.*;
 import client.interfaces.Presentable;
-import client.utils.tablecellfactories.*;
 import client.model.*;
 import client.network.Client;
-import client.utils.Comparators;
-import com.sun.javafx.scene.control.skin.TableColumnHeader;
+import client.utils.ApplicationUtil;
 import interop.model.fileinfo.*;
 import javafx.application.Platform;
-import javafx.beans.*;
-import javafx.beans.property.*;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
-import javafx.collections.*;
-import javafx.event.*;
 import javafx.fxml.FXML;
-import javafx.scene.Node;
-import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.*;
 
 import java.io.*;
+import java.net.ConnectException;
 import java.nio.file.*;
-import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Главное окно приложения
  */
-public class MainWindowController implements Presentable {
-    @FXML
-    private TableView<FileInfoView> clientTable;
-    @FXML
-    private TableColumn<FileInfoView, FileNameType> clientFileName;
-    @FXML
-    private TableColumn<FileInfoView, SimpleLongProperty> clientFileSize;
-    @FXML
-    private TableColumn<FileInfoView, SimpleStringProperty> clientFileDate;
-    @FXML
-    private TableColumn<FileInfoView, SimpleStringProperty> clientFileCreateDate;
-    @FXML
-    private ComboBox<File> clientDrives;
-    @FXML
-    private Label clientPath;
-    @FXML
-    private MenuItem menuItemConnect;
-    @FXML
-    private MenuItem menuItemDisconnect;
-    @FXML
-    private TableView<FileInfoView> serverTable;
-    @FXML
-    private TableColumn<FileInfoView, FileNameType> serverFileName;
-    @FXML
-    private TableColumn<FileInfoView, SimpleLongProperty> serverFileSize;
-    @FXML
-    private TableColumn<FileInfoView, SimpleStringProperty> serverFileDate;
-    @FXML
-    private TableColumn<FileInfoView, SimpleStringProperty> serverFileCreateDate;
-    @FXML
-    private Label serverPath;
-    @FXML
-    private Button newFile;
-    @FXML
-    private Button newDir;
-    @FXML
-    private Button rename;
-    @FXML
-    private Button copy;
-    @FXML
-    private Button delete;
+public class MainWindowController implements Presentable, SideEventsProcessable {
+    @FXML private MenuItem menuItemConnect;
+    @FXML private MenuItem menuItemDisconnect;
+    @FXML private SideController clientSideController;
+    @FXML private SideController serverSideController;
+    @FXML private Button newFile;
+    @FXML private Button newDir;
+    @FXML private Button rename;
+    @FXML private Button copy;
+    @FXML private Button delete;
 
     private Client client;                               // объект, через который происходит подключение к серверу
-    private User user;
-    private static Path currentClientDir;                // текущая директория на стороне клиента
+    private boolean isSign;
     private ProgressStage progressStage;                 // окно с отображением хода загрузки и выгрузки файлов
-    public static final String parentDir = "[ . . ]";   // строка для отображения родительской директории
-    private ConnectionStage connectionStage;                    // диалоговое окно аутентификации
-
-    // по умолчанию сортировка для обеих таблиц устанавливается по имени файла в порядке возрастания
-    private Comparator<FileInfoView> clientComparator = Comparators.comparatorByName(TableColumn.SortType.ASCENDING);
-    private Comparator<FileInfoView> serverComparator = clientComparator;
-
+    private ConnectionStage connectionStage;             // диалоговое окно аутентификации
 
     /**
      * Происходит установка свойств таблиц и колонок клиента и сервера.
      * По умолчанию текущий путь для клиента устанавливается его домашней директорией
      * По этой домашней директории получается список файлов и заносится в таблицу клиента
-     * @throws IOException может возникнуть при ошибках чтения файлов из домашней диерктории клиента
      */
-    public void init() throws IOException {
-        clientTable.setOnMouseClicked(this::clientTableMouseClicked);
-        clientFileName.setCellValueFactory(new PropertyValueFactory<>("fileNameType"));
-        clientFileSize.setCellValueFactory(new PropertyValueFactory<>("size"));
-        clientFileDate.setCellValueFactory(new PropertyValueFactory<>("lastModified"));
-        clientFileCreateDate.setCellValueFactory(new PropertyValueFactory<>("fileCreateDate"));
-        clientFileName.setCellFactory(new FileNameCellFactory<>(this::viewClientDirSize));
-        clientFileDate.setCellFactory(new FileCreateCellFactory<>());
-        clientFileCreateDate.setCellFactory(new FileCreateCellFactory<>());
-        clientFileSize.setCellFactory(new FileSizeCellFactory<>());
-
-        serverTable.setOnMouseClicked(this::serverTableMouseClicked);
-        serverFileName.setCellValueFactory(new PropertyValueFactory<>("fileNameType"));
-        serverFileSize.setCellValueFactory(new PropertyValueFactory<>("size"));
-        serverFileDate.setCellValueFactory(new PropertyValueFactory<>("lastModified"));
-        serverFileCreateDate.setCellValueFactory(new PropertyValueFactory<>("fileCreateDate"));
-        serverFileName.setCellFactory(new FileNameCellFactory<>(this::viewServerDirSize));
-        serverFileDate.setCellFactory(new FileCreateCellFactory<>());
-        serverFileCreateDate.setCellFactory(new FileCreateCellFactory<>());
-        serverFileSize.setCellFactory(new FileSizeCellFactory<>());
-
-        currentClientDir = Paths.get(System.getProperty("user.home"));
-        invalidateClientTable();
-        File[] paths = File.listRoots();
-        clientDrives.setItems(FXCollections.observableArrayList(paths));
-        clientDrives.getSelectionModel().select(currentClientDir.getRoot().toFile());
-        clientPath.setText(currentClientDir.toString());
+    public void init() {
+        serverSideController.setDrivesVisible(false);
+        clientSideController.setSideEventProcessable(this);
+        serverSideController.setSideEventProcessable(this);
+        File[] rootDirectories = File.listRoots();
+        clientSideController.setDrives(rootDirectories);
+        Path currentClientPath = Paths.get(ApplicationUtil.START_DIR_FOR_CLIENT);
+        clientSideController.selectDrive(currentClientPath.getRoot().toString());
+        clientSideController.setCurrentPath(currentClientPath.toString());
+        clientSideController.invalidateTable(getListFileInfoViewForClient(currentClientPath));
         addShortcuts();
     }
 
     /**
-     * Добавление горячих клавиш для пунктов меню
+     * Добавление горячих клавиш для пунктов меню в нижней части окна
      */
     private void addShortcuts() {
         newFile.getScene().getAccelerators().put(new KeyCodeCombination(KeyCode.N, KeyCombination.CONTROL_DOWN), () -> newFile.fire());
@@ -132,103 +68,44 @@ public class MainWindowController implements Presentable {
     }
 
     /**
-     * Обработка события клика левой кнопкой мыши на таблице клиента
-     * Если кликнули на одном из TableColumnHeader, то происходит сортировка
+     * Обработка изменения корневой директории на стороне клиента
+     * @param newPath путь новой корневой директории
+     */
+    public void driveChanged(String newPath) {
+        handleChangeDirOnClient(newPath);
+    }
+
+    /**
+     * Обработка перемещения по директориям
      * Если кликнули 2 раза на элементе таблицы FileInfoView и это директория,
      * то происходит переход в эту директорию
-     * @param event событие нажатия кнопки мыши
+     * @param controller контроллер стороны, который запросил изменение директории
+     * @param newPath новый путь
      */
-    private void clientTableMouseClicked(MouseEvent event) {
-        if(event.getButton().equals(MouseButton.PRIMARY)) {
-            EventTarget target = event.getTarget();
-            if(target instanceof TableColumnHeader) {
-                handleClickOnClientTableColumnHeader((TableColumnHeader)target);
-                return;
-            }
-            if(event.getClickCount() == 2) {
-                FileInfoView fileInfo = clientTable.getSelectionModel().getSelectedItem();
-                if (fileInfo != null) {
-                    if(fileInfo.getName().equals(parentDir)) {
-                        changeDirToParentOnClient();
-                    } else if(fileInfo.getType().equals(FileType.DIR)) {
-                        changeDirOnClient(fileInfo.getName());
-                    }
-                }
-            }
+    public void changeDir(SideController controller, String newPath) {
+        if(controller.equals(clientSideController)) {
+            handleChangeDirOnClient(newPath);
+        } else {
+            client.changeDir(newPath);
         }
     }
 
     /**
-     * Обработка нажатой кнопки мыши на заголовке колонки TableColumnHeader стороны клиента
-     * Происходит сортировка таблицы в зависимости от того, на заголовок какой колонки
-     * нажали мышью
-     * @param header заголовок колонки типа TableColumnHeader
+     * Общая обработка получения размера директории для клиентской и серверной стороны
+     * @param controller контроллер в котором запросили размер
+     * @param path путь к директории
      */
-    private void handleClickOnClientTableColumnHeader(TableColumnHeader header) {
-        if(header.getTableColumn().equals(clientFileName)) {
-            clientComparator = Comparators.comparatorByName(clientFileName.getSortType());
-        } else if(header.getTableColumn().equals(clientFileSize)) {
-            clientComparator = Comparators.comparatorBySize(clientFileSize.getSortType());
-        } else if(header.getTableColumn().equals(clientFileDate)) {
-            clientComparator = Comparators.comparatorByDate(clientFileDate.getSortType());
-        } else if(header.getTableColumn().equals(clientFileCreateDate)) {
-            clientComparator = Comparators.comparatorByCreateDate(clientFileCreateDate.getSortType());
-        }
-        FXCollections.sort(clientTable.getItems(), clientComparator);
-        clientTable.refresh();
-    }
-
-    /**
-     * Обработка щелчка левой кнопки мыши по таблице стороны сервера
-     * @param event событие щелчка мыши
-     */
-    private void serverTableMouseClicked(MouseEvent event) {
-        if(event.getButton().equals(MouseButton.PRIMARY)) {
-            EventTarget target = event.getTarget();
-            if(target instanceof TableColumnHeader) {
-                handleClickOnServerTableColumnHeader((TableColumnHeader)target);
-                return;
-            }
-            if(event.getClickCount() == 2) {
-                FileInfoView fileInfo = serverTable.getSelectionModel().getSelectedItem();
-                if(fileInfo != null) {
-                    if(fileInfo.getType().equals(FileType.DIR)) {
-                        String fileName = fileInfo.getName();
-                        String path;
-                        if(fileName.equals(parentDir)) {
-                            path = user.getCurrentDir().getParent().toString();
-                        } else {
-                            path = user.getCurrentDir().resolve(fileName).toString();
-                        }
-                        client.changeDir(path);
-                    }
-                }
-            }
+    public void sizeClicked(SideController controller, String path) {
+        if(controller.equals(clientSideController)) {
+            handleSizeClickedOnClient(path);
+        } else {
+            client.viewDirSize(path);
         }
     }
 
+    // ------------------------- Обработка нажатия на кнопках меню ---------------------------
     /**
-     * Обработка нажатой кнопки мыши на заголовке колонки TableColumnHeader таблицы стороны сервера
-     * Происходит сортировка таблицы в зависимости от того, на заголовок какой колонки
-     * нажали мышью
-     * @param header заголовок колонки типа TableColumnHeader
-     */
-    private void handleClickOnServerTableColumnHeader(TableColumnHeader header) {
-        if(header.getTableColumn().equals(serverFileName)) {
-            serverComparator = Comparators.comparatorByName(serverFileName.getSortType());
-        } else if(header.getTableColumn().equals(serverFileSize)) {
-            serverComparator = Comparators.comparatorBySize(serverFileSize.getSortType());
-        } else if(header.getTableColumn().equals(serverFileDate)) {
-            serverComparator = Comparators.comparatorByDate(serverFileDate.getSortType());
-        } else if(header.getTableColumn().equals(serverFileCreateDate)) {
-            serverComparator = Comparators.comparatorByCreateDate(serverFileCreateDate.getSortType());
-        }
-        FXCollections.sort(serverTable.getItems(), serverComparator);
-        serverTable.refresh();
-    }
-
-    /**
-     * Соединение с сервером
+     * Соединение с сервером (при щелчке на кнопке "Menu" -> "Соединение" -> "Соединиться...")
      */
     public void connectClick() {
         client = new Client(this);
@@ -236,96 +113,243 @@ public class MainWindowController implements Presentable {
     }
 
     /**
-     * обновление клиентской таблицы
-     * @throws IOException возникает при
+     * Происходит при щелчке левой кнопкой мыши по кнопке "Создать файл" в нижней части главного окна
      */
-    private void invalidateClientTable() throws IOException {
-        clientTable.getItems().clear();
-        if(currentClientDir.getParent() != null) {
-            clientTable.getItems().add(getFromFile(new File(parentDir)));
+    public void createFileClick() {
+        createFile(FileType.FILE);
+    }
+
+    /**
+     * Происходит при щелчке левой кнопкой мыши по кнопке "Создать папку" в нижней части главного окна
+     */
+    public void createDirClick() {
+        createFile(FileType.DIR);
+    }
+
+    /**
+     * Общая логика обработки нажатия кнопки "Создать файл" или "Создать папку" для стороны клиента и сервера
+     * @param fileType тип создаваемого файла
+     */
+    private void createFile(FileType fileType) {
+        if(!clientSideController.isTableFocused() && !serverSideController.isTableFocused()) {
+            showError("Не выбрано место создания! Выберите место создания файла кликнув на одной из таблиц");
+            return;
         }
-        File[] files = currentClientDir.toFile().listFiles();
-        if(files != null) {
-            for(File file : files) {
-                FileInfoView tableFile = getFromFile(file);
-                clientTable.getItems().add(tableFile);
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.setHeaderText(fileType == FileType.FILE ? "Введите имя нового файла" : "Введите имя новой папки");
+        dialog.showAndWait().ifPresent(newFileName -> {
+            if (!newFileName.equals("")) {
+                if(clientSideController.isTableFocused()) {
+                    handleCreateFileOnClient(newFileName, fileType);
+                } else {
+                    String newFilePath = serverSideController.getCurrentPath().resolve(newFileName).toString();
+                    if(fileType == FileType.FILE) {
+                        client.createFile(newFilePath);
+                    } else {
+                        client.createDir(newFilePath);
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Общая для клиента и сервера логика обработки события кнопки "Переименовать"
+     */
+    public void renameFile() {
+        if(!clientSideController.isTableFocused() && !serverSideController.isTableFocused()) {
+            showError("Не выбран ни один файл или выбраны сразу в двух таблицах");
+            return;
+        }
+        SideController controller;
+        if(clientSideController.isTableFocused()) {
+            controller = clientSideController;
+        } else {
+            controller = serverSideController;
+        }
+        FileInfoView selectedFileInfoView = controller.getSelectedItem();
+
+        if(selectedFileInfoView.getFileInfo().equals(FileInfo.PARENT_DIR)) {
+            return;
+        }
+
+        SideController finalController = controller;
+
+        FileInfo oldFileInfo = selectedFileInfoView.getFileInfo();
+        String oldFileName = oldFileInfo.getFileName();
+
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.setHeaderText("Введите новое имя");
+        dialog.showAndWait().ifPresent(newFileName -> {
+            if (!newFileName.equals("") && !newFileName.equals(oldFileName)) {
+                if(finalController.equals(serverSideController)) {
+                    String oldFilePath = serverSideController.getCurrentPath().resolve(oldFileName).toString();
+                    String newFilePath = serverSideController.getCurrentPath().resolve(newFileName).toString();
+                    client.renameFile(oldFilePath, newFilePath);
+                } else {
+                    handleRenameFileOnClient(oldFileInfo, newFileName);
+                }
+            }
+        });
+    }
+
+    /**
+     * Общая для клиента и сервера логика обработки события нажатия кнопки "Удалить"
+     */
+    public void deleteFile() {
+        if(!clientSideController.isTableFocused() && !serverSideController.isTableFocused()) {
+            showError("Не выбран ни один файл или выбраны сразу в двух таблицах");
+            return;
+        }
+        SideController controller;
+        if(clientSideController.isTableFocused()) {
+            controller = clientSideController;
+        } else {
+            controller = serverSideController;
+        }
+        FileInfoView selectedFileInfoView = controller.getSelectedItem();
+
+        if(selectedFileInfoView.getFileInfo().equals(FileInfo.PARENT_DIR)) {
+            return;
+        }
+
+        FileInfo selectedFileInfo = selectedFileInfoView.getFileInfo();
+        String fileType = selectedFileInfo.getType() == FileType.DIR ? "директорию " : "файл ";
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Удалить " + fileType +
+                "\"" + selectedFileInfo.getFileName() + "\" ?");
+        if(alert.showAndWait().get() == ButtonType.OK) {
+            if(controller.equals(serverSideController)) {
+                client.deleteFile(serverSideController.getCurrentPath().resolve(selectedFileInfo.getFileName()).toString());
+            } else {
+                handleDeleteFileOnClient(selectedFileInfoView);
             }
         }
-        FXCollections.sort(clientTable.getItems(), clientComparator);
-        clientTable.refresh();
     }
 
     /**
-     * Происходит после изменения корневого диска на стороне клиента
+     * Общая для клиента и сервера логика обработки события кнопки "Копировать"
      */
-    public void clientDriveChanged() {
-        File file = clientDrives.getSelectionModel().getSelectedItem();
-        if(file != null) {
-            changeDirOnClient(file.toString());
+    public void copyClick() {
+        if(!clientSideController.isTableFocused() && !serverSideController.isTableFocused()) {
+            showError("Не выбран ни один файл или выбраны сразу в двух таблицах");
+            return;
+        }
+        SideController controller;
+        if(clientSideController.isTableFocused()) {
+            controller = clientSideController;
+        } else {
+            controller = serverSideController;
+        }
+        FileInfoView selectedFileInfoView = controller.getSelectedItem();
+
+        if(selectedFileInfoView.getFileInfo().equals(FileInfo.PARENT_DIR)) {
+            return;
+        }
+
+        FileInfo selectedFileInfo = selectedFileInfoView.getFileInfo();
+        String fileName = selectedFileInfo.getFileName();
+        String fileType = selectedFileInfo.getType() == FileType.DIR ? "директорию " : "файл ";
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Скопировать " + fileType +
+               "\"" + fileName + "\"" + (controller.equals(clientSideController) ? " в хранилище?" :  " из хранилища?"));
+        if(alert.showAndWait().get() == ButtonType.OK) {
+            startProgress();
+            Path currentPath = clientSideController.getCurrentPath();
+            if(controller.equals(serverSideController)) {
+                client.downloadFile(currentPath, serverSideController.getCurrentPath().resolve(fileName).toString());
+            } else {
+                client.uploadFile(currentPath.resolve(fileName), serverSideController.getCurrentPath());
+            }
         }
     }
 
-
-    // ---------------------- Обрабока команд на стороне клиента ---------------------
     /**
-     * Метод, отвечающий за создание файла (директории) на стороне клиента
-     * @param fileName имя файла
-     * @param fileType тип файла (регулярный файл или директория)
+     * Начальное отображение окна с ходом загрузки или скачивания
      */
-    private void createFileOnClient(String fileName, FileType fileType) {
+    private void startProgress() {
+        progressStage = new ProgressStage("Копирование файлов");
+        progressStage.setMessage("Ожидание готовности сервера...");
+        progressStage.show();
+    }
+
+    /**
+     * Общая для клиента и сервера логика обработки поиска файла
+     * @param controller контроллер на котором был инициирован поиск файла
+     * @param fileName имя искомого файла
+     */
+    public void searchFile(SideController controller, String fileName) {
+        if(controller.equals(clientSideController)) {
+            try {
+                List<FileInfoView> fileInfoViewList = findFiles(fileName);
+                if(fileInfoViewList.size() > 0) {
+                    SearchStage stage = new SearchStage();
+                    stage.addItems(fileInfoViewList);
+                    stage.show();
+                } else {
+                    Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Ничего не найдено");
+                    alert.showAndWait();
+                }
+            } catch (IOException ex) {
+                showError(ex.getMessage());
+            }
+        } else {
+            if(isSign) {
+                client.searchFile(serverSideController.getCurrentPath().toString(), fileName);
+            }
+        }
+    }
+
+    // ---------------------  Обработка на стороне клиента команд:  ----------------------------------
+    // 1. Change dir
+    // 2. Create file
+    // 3. Rename file
+    // 4. Delete file
+    // 5. Get directory size
+    // 6. Search file
+
+    /**
+     * Обработка изменения текущей директории на стороне клиента
+     * @param pathString новый путь
+     */
+    private void handleChangeDirOnClient(String pathString) {
+        Path newPath = Paths.get(pathString);
+        List<FileInfoView> listFileInfoView = getListFileInfoViewForClient(newPath);
+        clientSideController.setCurrentPath(newPath.toString());
+        clientSideController.invalidateTable(listFileInfoView);
+    }
+
+    /**
+     * Создание нового файла (директории) на клиенте
+     * @param fileName имя нового файла (директории)
+     * @param type тип файла (регулярный файл или директория)
+     */
+    private void handleCreateFileOnClient(String fileName, FileType type) {
         try {
             Path path;
-            if(fileType == FileType.FILE) {
-                path = Files.createFile(currentClientDir.resolve(fileName));
+            Path currentPathOnClient = clientSideController.getCurrentPath();
+            if(type == FileType.FILE) {
+                path = Files.createFile(currentPathOnClient.resolve(fileName));
             } else {
-                path = Files.createDirectory(currentClientDir.resolve(fileName));
+                path = Files.createDirectory(currentPathOnClient.resolve(fileName));
             }
-            File file = path.toFile();
-            FileInfoView fileInfoView = getFromFile(file);
-            clientTable.getItems().add(fileInfoView);
-            invalidateClientTable();
+            FileInfoView fileInfoView = getFromPath(path);
+            clientSideController.add(fileInfoView);
         } catch (IOException ex) {
             showError(ex.getMessage());
         }
     }
 
     /**
-     * Переход на стороне клиента к родительской директории
+     * Переименовывание файла (директории) на клиенте
+     * @param oldFileInfo старое имя файла
+     * @param newFileName новое имя файла
      */
-    private void changeDirToParentOnClient() {
-        Path parentPath = currentClientDir.getParent();
-        if(parentPath != null) {
-            changeDirOnClient(parentPath.toString());
-        }
-    }
-
-    /**
-     * Изменение текущей директории на клиенте
-     * @param path новый путь на клиенте
-     */
-    private void changeDirOnClient(String path) {
+    private void handleRenameFileOnClient(FileInfo oldFileInfo, String newFileName) {
         try {
-            Path tempPath = Paths.get(path);
-            currentClientDir = currentClientDir.resolve(tempPath);
-            invalidateClientTable();
-            clientPath.setText(currentClientDir.toString());
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
-    }
-
-    /**
-     * Обработка переименования файла на клиенте
-     * @param oldFileInfo старое название файла
-     * @param newFileName новое название файла
-     */
-    private void renameFileOnClient(FileInfoView oldFileInfo, String newFileName) {
-        try {
-            String oldFileName = oldFileInfo.getName();
-            Files.move(currentClientDir.resolve(oldFileName),
-                    currentClientDir.resolve(newFileName)).toFile();
-            oldFileInfo.getFileNameType().setFileName(newFileName);
-            clientTable.refresh();
+            Path clientCurrentPath = clientSideController.getCurrentPath();
+            Files.move(clientCurrentPath.resolve(oldFileInfo.getFileName()),
+                    clientCurrentPath.resolve(newFileName));
+            oldFileInfo.setFileName(newFileName);
+            clientSideController.sortAndRefreshTable();
         } catch (IOException e) {
             showError(e.getMessage());
         }
@@ -333,22 +357,20 @@ public class MainWindowController implements Presentable {
 
     /**
      * Удаление файла на клиенте
-     * @param fileInfo элемент из клиенсткой таблицы
+     * @param fileInfoView элемент из клиентской таблицы
      */
-    private void deleteFileOnClient(FileInfoView fileInfo) {
-        Path filePath = currentClientDir.resolve(fileInfo.getName());
+    private void handleDeleteFileOnClient(FileInfoView fileInfoView) {
+        Path filePath = clientSideController.getCurrentPath().resolve(fileInfoView.getFileInfo().getFileName());
         try {
             if(Files.isDirectory(filePath)) {
-                deleteDirectoryOnClient(filePath);
+                recursiveDeleteDirectoryOnClient(filePath);
             } else {
                 Files.delete(filePath);
             }
         } catch (IOException e) {
             showError(e.getMessage());
         }
-        clientTable.getItems().remove(fileInfo);
-        FXCollections.sort(clientTable.getItems(), clientComparator);
-        clientTable.refresh();
+        clientSideController.remove(fileInfoView);
     }
 
     /**
@@ -356,7 +378,7 @@ public class MainWindowController implements Presentable {
      * @param path путь к удаляемой директори
      * @throws IOException при возникновении ошибок, возникающих при удалении
      */
-    private void deleteDirectoryOnClient(Path path) throws IOException {
+    private void recursiveDeleteDirectoryOnClient(Path path) throws IOException {
         Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
@@ -373,21 +395,39 @@ public class MainWindowController implements Presentable {
     }
 
     /**
-     * Происходит при нажатии клавиши Enter над тектовым полем поиска на стороне клиента
-     * @param actionEvent событие Enter на текстовом поле поиска на стороне клиента
+     * Обработка получения размера директории на стороне клиента
+     * @param dirPath путь к директории
      */
-    public void searchFileOnClient(ActionEvent actionEvent) {
-        try {
-            TextField txtField = (TextField)actionEvent.getSource();
-            String fileName = txtField.getText();
-            List<FileInfo> foundedFiles = findFiles(fileName);
-            SearchStage stage = new SearchStage();
-            stage.addItems(getListFileInfoView(foundedFiles));
-            stage.show();
-        } catch (IOException ex) {
-            errorReceived(ex.getMessage());
-            ex.printStackTrace();
+    private void handleSizeClickedOnClient(String dirPath) {
+        Path path = Paths.get(dirPath);
+        long size = getDirSizeOnClient(path);
+        FileInfoView fileInfoView = clientSideController.getByFileName(path.getFileName().toString());
+        if(fileInfoView != null) {
+            fileInfoView.getFileInfo().setSize(size);
+            clientSideController.refresh();
         }
+    }
+
+    /**
+     * Вычисление размера директории на клиентской стороне
+     * @param path путь к директории
+     * @return размер директории
+     */
+    private long getDirSizeOnClient(Path path) {
+        final long[] result = {0};
+        try {
+            Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    result[0] += file.toFile().length();
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException ex) {
+            showError(ex.getMessage());
+            result[0] = 0;
+        }
+        return result[0];
     }
 
     /**
@@ -396,86 +436,31 @@ public class MainWindowController implements Presentable {
      * @return список найденных файлов типа List<FileInfo>
      * @throws IOException ошибки при поиске файла
      */
-    private List<FileInfo> findFiles(String fileName) throws IOException {
-        List<FileInfo> result = new LinkedList<>();
-        Files.walkFileTree(currentClientDir, new SimpleFileVisitor<Path>() {
+    private List<FileInfoView> findFiles(String fileName) throws IOException {
+        List<FileInfoView> result = new LinkedList<>();
+        Path startPath = clientSideController.getCurrentPath();
+        Files.walkFileTree(startPath, new SimpleFileVisitor<Path>() {
             @Override
-            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                if(dir.getFileName().toString().contains(fileName)) {
-                    result.add(new Directory(dir.toString(), 0L, 0L));
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                if(!dir.equals(startPath) && dir.getFileName().toString().contains(fileName)) {
+                    FileInfoView fileInfoView = getFromPath(dir);
+                    fileInfoView.getFileInfo().setFileName(dir.toString());
+                    result.add(fileInfoView);
                 }
                 return FileVisitResult.CONTINUE;
             }
 
             @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                 if(file.getFileName().toString().contains(fileName)) {
-                    result.add(new RegularFile(file.toString(), 0L, 0L, 0L));
+                    FileInfoView fileInfoView = getFromPath(file);
+                    fileInfoView.getFileInfo().setFileName(file.toString());
+                    result.add(fileInfoView);
                 }
                 return FileVisitResult.CONTINUE;
             }
         });
         return result;
-    }
-
-    /**
-     * Обработка нажатия кнопки кнотекстного меню "Размер" на клиентской стороне
-     */
-    private void viewClientDirSize() {
-        try {
-            FileInfoView selectedFileInfo = clientTable.getSelectionModel().getSelectedItem();
-            if(selectedFileInfo != null) {
-                String fileName = selectedFileInfo.getName();
-                Path path = currentClientDir.resolve(selectedFileInfo.getName());
-                long size = getDirSize(path);
-                FileInfoView fiv = clientTable.getItems().stream()
-                        .filter(fileInfoView -> fileName.equals(fileInfoView.getName()))
-                        .findFirst().get();
-                fiv.setSize(size);
-                clientTable.refresh();
-            }
-        } catch(IOException ex) {
-            showError(ex.getMessage());
-        }
-    }
-
-    /**
-     * Вычисление размера директории на клиентской стороне
-     * @param path путь к директории
-     * @return размер директории
-     * @throws IOException при вычислении размера
-     */
-    private long getDirSize(Path path) throws IOException {
-        final long[] result = {0};
-        Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                result[0] += file.toFile().length();
-                return FileVisitResult.CONTINUE;
-            }
-        });
-        return result[0];
-    }
-
-    // -----------------------------------------------------------------------------------
-
-    /**
-     * Отправка запроса на сервер о получении размера директории
-     * @param actionEvent событие нажатия в контекстном меню
-     */
-    public void searchFileOnServer(ActionEvent actionEvent) {
-        TextField searchServerTxtField = (TextField)actionEvent.getSource();
-        client.searchFile(searchServerTxtField.getText());
-    }
-
-    /**
-     * Отправка запроса на сервер для получения размера выбранной директории
-     */
-    private void viewServerDirSize() {
-        FileInfoView selectedFileInfo = serverTable.getSelectionModel().getSelectedItem();
-        if(selectedFileInfo != null) {
-            client.viewDirSize(selectedFileInfo.getName());
-        }
     }
 
     // ------------------ Обработка ответов от сервера ----------------
@@ -489,13 +474,12 @@ public class MainWindowController implements Presentable {
         Platform.runLater(() -> {
             try {
                 connectionStage = new ConnectionStage();
+                connectionStage.setOwner(newFile.getScene().getWindow());
                 connectionStage.showAndWait();
                 ButtonType btnType = connectionStage.getDialogResult();
                 if(btnType == ButtonType.OK) {
-                    user = new User(connectionStage.getLogin());
                     client.authentication(connectionStage.getLogin(), connectionStage.getPassword());
                 } else if(btnType == ButtonType.APPLY) {
-                    user = new User(connectionStage.getLogin());
                     client.registration(connectionStage.getLogin(), connectionStage.getPassword());
                 } else {
                     client.disconnect();
@@ -514,8 +498,7 @@ public class MainWindowController implements Presentable {
     public void clientSigned(String currentDir, List<FileInfo> files) {
         menuItemConnect.setDisable(true);
         menuItemDisconnect.setDisable(false);
-        user.setSign(true);
-        user.setCurrentDir(Paths.get(currentDir));
+        isSign = true;
         currentDirChanged(currentDir, files);
     }
 
@@ -526,13 +509,12 @@ public class MainWindowController implements Presentable {
      */
     public void currentDirChanged(String newDirPath, List<FileInfo> files) {
         Platform.runLater(() -> {
-            user.setCurrentDir(Paths.get(newDirPath));
-            String currentDir = user.getCurrentDir().toString();
-            if(!currentDir.equals(user.getLogin())) {
-                files.add(new Directory("[ . . ]", -1L, -1L));
+            String currentDirForView = newDirPath;
+            if(newDirPath.equals(ApplicationUtil.SERVER_USER_ROOT_SYMBOL)) {
+                currentDirForView = ApplicationUtil.SERVER_USER_ROOT_SYMBOL + File.separator;
             }
-            serverPath.setText(user.getPrompt());
-            invalidateServerTable(getListFileInfoView(files));
+            serverSideController.setCurrentPath(currentDirForView);
+            serverSideController.invalidateTable(getFromFileInfo(newDirPath, files));
         });
     }
 
@@ -542,38 +524,32 @@ public class MainWindowController implements Presentable {
      */
     public void fileCreated(FileInfo fileInfo) {
         Platform.runLater(() -> {
-            serverTable.getItems().add(getTableFileInfo(fileInfo));
-            FXCollections.sort(serverTable.getItems(), serverComparator);
-            serverTable.refresh();
+            FileInfoView fileInfoView = new FileInfoView(fileInfo);
+            serverSideController.add(fileInfoView);
         });
     }
 
     /**
      * Происходит при успешном переименовании файла на сервере
-     * @param oldFileInfo информация о файле со старым названием
-     * @param newFileInfo информация о файле с новым названием
+     * @param oldFilePath путь к файлу со старым названием
+     * @param newFilePath путь к файлу с новым названием
      */
-    public void fileRenamed(FileInfo oldFileInfo, FileInfo newFileInfo) {
+    public void fileRenamed(String oldFilePath, String newFilePath) {
         Platform.runLater(() -> {
-            FileInfoView tableFileInfo = serverTable.getItems()
-                    .stream()
-                    .filter(tfi -> tfi.getName().equals(oldFileInfo.getFileName()))
-                    .findFirst().get();
-            tableFileInfo.setName(newFileInfo.getFileName());
-            FXCollections.sort(serverTable.getItems(), serverComparator);
-            serverTable.refresh();
+            FileInfoView fileInfoView = serverSideController.getByFileName(new File(oldFilePath).getName());
+            fileInfoView.getFileInfo().setFileName(new File(newFilePath).getName());
+            serverSideController.sortAndRefreshTable();
         });
     }
 
     /**
      * Прорисходит при успешном удалении файла на сервере
-     * @param oldFileInfo информация об удаленном файле
+     * @param deletedFilePath путь к удаленному файлу
      */
-    public void fileDeleted(FileInfo oldFileInfo) {
+    public void fileDeleted(String deletedFilePath) {
         Platform.runLater(() -> {
-            serverTable.getItems().remove(getTableFileInfo(oldFileInfo));
-            FXCollections.sort(serverTable.getItems(), serverComparator);
-            serverTable.refresh();
+            FileInfoView fileInfoView = serverSideController.getByFileName(Paths.get(deletedFilePath).getFileName().toString());
+            serverSideController.remove(fileInfoView);
         });
     }
 
@@ -581,15 +557,24 @@ public class MainWindowController implements Presentable {
      * Отображение хода загрузки (upload) файлов на удаленный сервер
      * @param percent процент выгрузки (от 0.0 до 1.0)
      */
-    public void progressUpload(double percent) {
+    public void progressUpload(double percent, String fileName) {
         Platform.runLater(() -> {
             progressStage.setProgress(percent);
-            if(percent == 1.0) {
-                client.changeDir(user.getCurrentDir().toString());
-                postLoad();
-            } else {
-                progressStage.setMessage("Копирование файлов...");
+            progressStage.setFileName(fileName);
+            progressStage.setMessage("Копирование файлов...");
+        });
+    }
+
+    public void uploadDone(String currentDir, List<FileInfo> fileInfoList) {
+        Platform.runLater(() -> {
+            progressStage.close();
+            if(serverSideController.getCurrentPath().toString().equals(currentDir)) {
+                List<FileInfoView> fileInfoViewList = getFromFileInfo(currentDir, fileInfoList);
+                serverSideController.invalidateTable(fileInfoViewList);
             }
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                    "Копирование файлов завершено");
+            alert.showAndWait();
         });
     }
 
@@ -597,25 +582,26 @@ public class MainWindowController implements Presentable {
      * Отображение хода загрузки файлов из сервера
      * @param percent процент выгрузки (от 0.0 до 1.0)
      */
-    public void progressDownload(double percent) {
+    public void progressDownload(double percent, String filePath) {
         Platform.runLater(() -> {
             progressStage.setProgress(percent);
-            if(percent == 1.0) {
-                changeDirOnClient(currentClientDir.toString());
-                postLoad();
-            } else {
-                progressStage.setMessage("Копирование файлов...");
-            }
+            progressStage.setFileName(filePath);
+            progressStage.setMessage("Копирование файлов...");
         });
     }
 
-    /**
-     * Происходит после загрузки или скачивания файла
-     */
-    private void postLoad() {
-        progressStage.close();
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION,"Копирование файлов завершено");
-        alert.showAndWait();
+    @Override
+    public void downloadDone(String downloadingPath) {
+        Platform.runLater(() -> {
+            progressStage.close();
+            if(clientSideController.getCurrentPath().toString().equals(downloadingPath)) {
+                List<FileInfoView> fileInfoViewList = getListFileInfoViewForClient(clientSideController.getCurrentPath());
+                clientSideController.invalidateTable(fileInfoViewList);
+            }
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                    "Копирование файлов завершено");
+            alert.showAndWait();
+        });
     }
 
     /**
@@ -624,13 +610,12 @@ public class MainWindowController implements Presentable {
      */
     public void foundedFilesReceived(List<FileInfo> files) {
         Platform.runLater(() -> {
-            try {
-                SearchStage search = new SearchStage();
-                search.addItems(getListFileInfoView(files));
-                search.show();
-            } catch (IOException ex) {
-                showError("Внутренняя ошибка");
-            }
+            SearchStage search = new SearchStage();
+            List<FileInfoView> fileInfoViewList = files.stream()
+                    .map(fileInfo -> new FileInfoView(fileInfo))
+                    .collect(Collectors.toList());
+            search.addItems(fileInfoViewList);
+            search.show();
         });
     }
 
@@ -641,11 +626,9 @@ public class MainWindowController implements Presentable {
      */
     public void viewDirSizeOnServer(FileInfo fileInfo, long size) {
         Platform.runLater(() -> {
-            FileInfoView fiv = serverTable.getItems().stream()
-                    .filter(fileInfoView -> fileInfo.getFileName().equals(fileInfoView.getName()))
-                    .findFirst().get();
-            fiv.setSize(size);
-            serverTable.refresh();
+            FileInfoView fileInfoView = serverSideController.getByFileName(fileInfo.getFileName());
+            fileInfoView.getFileInfo().setSize(size);
+            serverSideController.refresh();
         });
     }
 
@@ -656,53 +639,11 @@ public class MainWindowController implements Presentable {
     public void errorReceived(String message) {
         Platform.runLater(() -> {
             showError(message);
-            if(client != null && !user.isSign()) {
+            if(client != null && !isSign) {
                 channelActivated();
             }
         });
     }
-
-    // ---------------------------------------------------------------------------------------------
-
-    /**
-     * Обновление таблицы серверной стороны
-     * @param files обновленный список файлов
-     */
-    private void invalidateServerTable(List<FileInfoView> files) {
-        Platform.runLater(() -> {
-            serverTable.getItems().clear();
-            serverTable.getItems().addAll(files);
-            FXCollections.sort(serverTable.getItems(), serverComparator);
-            serverTable.refresh();
-        });
-    }
-
-    /**
-     * Преобразование типа File в FileInfoView
-     * @param file преобразуемый тип
-     * @return преобразованный тип FileInfoView
-     * @throws IOException может возникнуть при проблемах чтения атрибутов файла
-     */
-    private FileInfoView getFromFile(File file) throws IOException {
-        FileInfoView tableFile;
-        if(file.getName().equals(parentDir)) {
-            FileNameType fileNameType = new FileNameType(parentDir, FileType.DIR);
-            tableFile = new FileInfoView(fileNameType,null, null, null);
-        } else {
-            BasicFileAttributes attr = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
-            long createDate = attr.creationTime().toMillis();
-            if(file.isDirectory()) {
-                FileNameType fileNameType = new FileNameType(file.getName(), FileType.DIR);
-                tableFile = new FileInfoView(fileNameType, null, file.lastModified(), createDate);
-            } else {
-                FileNameType fileNameType = new FileNameType(file.getName(), FileType.FILE);
-                tableFile = new FileInfoView(fileNameType, file.length(), file.lastModified(), createDate);
-            }
-        }
-        return tableFile;
-    }
-
-    // ----------------------------------------------------------------------------------------------
 
     /**
      * Отображение окна с сообщением об ошибке
@@ -713,173 +654,75 @@ public class MainWindowController implements Presentable {
         alert.showAndWait();
     }
 
-    // ---------------------- Обработка нажатия кнопок меню ----------------------------------------
-
-    /**
-     * Происходит при щелчке левой кнопкой мыши по кнопке "Создать файл" в нижней части главного окна
-     */
-    public void createFileClick() {
-        createFileClick(FileType.FILE);
+    private void showInfo(String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION, message);
+        alert.showAndWait();
     }
 
-    /**
-     * Происходит при щелчке левой кнопкой мыши по кнопке "Создать папку" в нижней части главного окна
-     */
-    public void createDirClick() {
-        createFileClick(FileType.DIR);
-    }
+    // ---------------------------------------------------------------------------------------------
 
     /**
-     * Общая логика обработки нажатия кнопки "Создать файл" или "Создать папку"
-     * @param fileType тип создаваемого файла
+     * Получение списка FileInfoView из пути к директории
+     * @param newPath путь к файлу
      */
-    private void createFileClick(FileType fileType) {
-        TableView<FileInfoView> focusedTable = clientTable.isFocused() ? clientTable :
-                serverTable.isFocused() ? serverTable : null;
-        if(focusedTable != null) {
-            TextInputDialog dialog = new TextInputDialog();
-            dialog.setHeaderText(fileType == FileType.FILE ? "Создать новый файл" : "Создать новую папку");
-            dialog.showAndWait().ifPresent(newFileName -> {
-                if (!newFileName.equals("")) {
-                    if(focusedTable.equals(clientTable)) {
-                        createFileOnClient(newFileName, fileType);
-                    } else {
-                        client.createFile(newFileName, fileType);
-                    }
-                }
-            });
-        }
-    }
-
-    /**
-     * Общая для клиента и сервера логика обработки события кнопки "Копировать"
-     */
-    public void copyClick() {
-        TableView<FileInfoView> focusedTable = clientTable.isFocused() ? clientTable :
-                serverTable.isFocused() ? serverTable : null;
-        if(focusedTable != null) {
-            FileInfoView selectedFileInfo = focusedTable.getSelectionModel().getSelectedItem();
-            if(selectedFileInfo != null) {
-                String fileName = selectedFileInfo.getName();
-                String fileType = selectedFileInfo.getType() == FileType.DIR ? "директорию " : "файл ";
-                Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Скопировать " + fileType +
-                        fileName + (focusedTable.equals(clientTable) ? " в хранилище?" :  " из хранилища?"));
-                if(alert.showAndWait().get() == ButtonType.OK) {
-                    startProgress();
-                    if(focusedTable.equals(serverTable)) {
-                        fileName = user.getCurrentDir().resolve(fileName).toString();
-                        client.downloadFile(currentClientDir, fileName);
-                    } else {
-                        client.uploadFile(currentClientDir.resolve(fileName));
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Общая для клиента и сервера логика обработки события кнопки "Переименовать"
-     */
-    public void renameFile() {
-        TableView<FileInfoView> focusedTable = clientTable.isFocused() ? clientTable :
-                serverTable.isFocused() ? serverTable : null;
-        if(focusedTable != null) {
-            FileInfoView selectedFileInfo = focusedTable.getSelectionModel().getSelectedItem();
-            if(selectedFileInfo != null) {
-                TextInputDialog dialog = new TextInputDialog();
-                dialog.setHeaderText("Новое имя");
-                dialog.showAndWait().ifPresent(newFileName -> {
-                    String oldFileName = selectedFileInfo.getName();
-                    if (!newFileName.equals("") && !newFileName.equals(oldFileName)) {
-                        if(focusedTable.equals(serverTable)) {
-                            client.renameFile(oldFileName, newFileName);
-                        } else {
-                            renameFileOnClient(selectedFileInfo, newFileName);
-                        }
-                    }
-                });
-            }
-        }
-    }
-
-    /**
-     * Общая для клиента и сервера логика обработки события нажатия кнопки "Удалить"
-     */
-    public void deleteFile() {
-        TableView<FileInfoView> focusedTable = clientTable.isFocused() ? clientTable :
-                serverTable.isFocused() ? serverTable : null;
-        if(focusedTable != null) {
-            FileInfoView selectedFileInfo = focusedTable.getSelectionModel().getSelectedItem();
-            if(selectedFileInfo != null) {
-                String fileType = selectedFileInfo.getType() == FileType.DIR ? "директорию " : "файл ";
-                Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Удалить " + fileType +
-                        selectedFileInfo.getName() + "?");
-                if(alert.showAndWait().get() == ButtonType.OK) {
-                    if(focusedTable.equals(serverTable)) {
-                        client.deleteFile(selectedFileInfo.getName());
-                    } else {
-                        deleteFileOnClient(selectedFileInfo);
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Начальное отображение окна с ходом загрузки или скачивания
-     */
-    private void startProgress() {
-        Platform.runLater(() -> {
-            try{
-                progressStage = new ProgressStage("Копирование файлов");
-                progressStage.setMessage("Ожидание готовности сервера...");
-                progressStage.show();
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-        });
-    }
-
-    /**
-     * Преобразование из List<FileInfo> в List<FileInfoView>
-     * @param fileInfos преобразуемый список типа List<FileInfo>
-     * @return преобразованный список List<FileInfoView>
-     */
-    private List<FileInfoView> getListFileInfoView(List<FileInfo> fileInfos) {
+    private List<FileInfoView> getListFileInfoViewForClient(Path newPath) {
         List<FileInfoView> result = new LinkedList<>();
-        fileInfos.forEach(fi -> result.add(getTableFileInfo(fi)));
+        if(newPath.getParent() != null) {
+            result.add(new FileInfoView(FileInfo.PARENT_DIR));
+        }
+        File[] files = newPath.toFile().listFiles();
+        if(files != null) {
+            for(File file : files) {
+                result.add(getFromPath(file.toPath()));
+            }
+        }
         return result;
     }
 
     /**
-     * Преобразование из FileInfo в FileInfoView
-     * @param fileInfo преобразуемый объект типа FileInfo
-     * @return преобразованный объект типа FileInfoView
+     * Получение FileInfoView из пути к файлу
+     * @param path путь к файлу
+     * @return объект типа FileInfoView
      */
-    private FileInfoView getTableFileInfo(FileInfo fileInfo) {
-        FileType fileType;
-        Long size;
-        if(fileInfo instanceof RegularFile) {
-            fileType = FileType.FILE;
-            size = ((RegularFile) fileInfo).getSize();
-        } else {
-            fileType = FileType.DIR;
-            size = null;
+    private FileInfoView getFromPath(Path path) {
+        FileInfoView fileInfoView;
+        try {
+            BasicFileAttributes attr = Files.readAttributes(path, BasicFileAttributes.class);
+            FileType type = attr.isDirectory() ? FileType.DIR : FileType.FILE;
+            String fileName = path.getFileName().toString();
+            long size = type == FileType.DIR ? -1L : attr.size();
+            long lastModified = attr.lastModifiedTime().toMillis();
+            long createDate = attr.creationTime().toMillis();
+            FileInfo fileInfo = new FileInfo(type, fileName, size, lastModified, createDate);
+            fileInfoView = new FileInfoView(fileInfo);
+        } catch (IOException ex) {
+            FileInfo fileInfo = new FileInfo(FileType.FILE, path.getFileName().toString(), -1L, 0L, 0L);
+            fileInfoView = new FileInfoView(fileInfo);
         }
-        FileNameType fileNameType = new FileNameType(fileInfo.getFileName(), fileType);
-        Long createDate = fileInfo.getCreateDate();
-        if(createDate == -1) {
-            createDate = null;
-        }
-        Long lastModified = fileInfo.getLastModified();
-        if(lastModified == -1) {
-            lastModified = null;
-        }
-        return new FileInfoView(fileNameType, size, lastModified, createDate);
+        return fileInfoView;
     }
 
     /**
-     * Закрытие соедиенения и выход из программы
+     * Преобразование из List<FileInfo>, полученного от сервера в List<FileInfoView>
+     *     для представления в таблице
+     * @param newDirPath новая текущая директория на сервере
+     * @param listFileInfo список информации о файлах на сервере
+     * @return список преобразованных FileInfo
+     */
+    private List<FileInfoView> getFromFileInfo(String newDirPath, List<FileInfo> listFileInfo) {
+        List<FileInfoView> result = new LinkedList<>();
+        if(!newDirPath.equals(ApplicationUtil.SERVER_USER_ROOT_SYMBOL)) {
+            result.add(new FileInfoView(FileInfo.PARENT_DIR));
+        }
+        for(FileInfo fileInfo : listFileInfo) {
+            result.add(new FileInfoView(fileInfo));
+        }
+        return result;
+    }
+
+
+    /**
+     * Закрытие соединения и выход из программы
      */
     public void closeConnection() {
         closeChannel();
@@ -900,10 +743,19 @@ public class MainWindowController implements Presentable {
      */
     public void disconnectClick() {
         closeChannel();
+        setToInitialState();
+        showInfo("Соединение закрыто");
+    }
+
+    /**
+     * Приведение в исходное состояние
+     */
+    private void setToInitialState() {
+        isSign = false;
         menuItemConnect.setDisable(false);
         menuItemDisconnect.setDisable(true);
-        serverTable.getItems().clear();
-        serverPath.setText("");
+        serverSideController.clear();
+        serverSideController.setCurrentPath("");
     }
 
     /**
@@ -912,25 +764,16 @@ public class MainWindowController implements Presentable {
      */
     @Override
     public void exceptionCaught(Throwable cause) {
-        if(connectionStage.isShowing()) {
-            connectionStage.close();
-        }
-        disconnectClick();
-    }
-
-    /**
-     * Слушатель изменения фокуса. При попытке перехода фокуса от таблиц к кнопкам расположенным внизу
-     * фокус возвращается обратно к таблице
-     * @param oldNode элемент от которого переходит фокус
-     * @param newNode элемент в который переходит фокус
-     */
-    public void focusOwnerListener(Node oldNode, Node newNode) {
-        if(oldNode != null) {
-            if ((oldNode.equals(clientTable) || oldNode.equals(serverTable))
-                    && ((newNode.equals(newFile) || newNode.equals(newDir)
-                    || newNode.equals(copy) || newNode.equals(rename) || newNode.equals(delete)))) {
-                oldNode.requestFocus();
+        Platform.runLater(() -> {
+            if(cause instanceof ConnectException) {
+                showError("Соединение с сервером отсутствует");
+            } else {
+                if(connectionStage.isShowing()) {
+                    connectionStage.close();
+                }
+                showInfo("Соединение с сервером потеряно");
             }
-        }
+            setToInitialState();
+        });
     }
 }

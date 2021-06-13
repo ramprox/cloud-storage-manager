@@ -1,10 +1,20 @@
 package client;
 
 import client.controllers.MainWindowController;
+import client.stages.ProgressStage;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.*;
 import javafx.stage.Stage;
+
+import java.io.ByteArrayOutputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Map;
 
 /**
  * Главный класс, содержащий точку входа в приложение
@@ -26,7 +36,6 @@ public class MainClientApp extends Application {
         primaryStage.setOnCloseRequest(event -> controller.closeConnection());
         primaryStage.setTitle("Cloud storage manager");
         primaryStage.setScene(scene);
-        scene.focusOwnerProperty().addListener((prop, oldNode, newNode) -> {controller.focusOwnerListener(oldNode, newNode);});
         primaryStage.show();
     }
 
@@ -34,7 +43,7 @@ public class MainClientApp extends Application {
      * Точка входа в приложение
      * @param args аргументы командной строки
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         launch(args);
     }
 }

@@ -1,116 +1,134 @@
 package client.model;
 
-import interop.model.fileinfo.FileNameType;
+import interop.model.fileinfo.FileInfo;
 import interop.model.fileinfo.FileType;
-import javafx.beans.property.SimpleLongProperty;
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.beans.property.SimpleStringProperty;
+import javafx.scene.control.TableColumn;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 
-/**
- * Модель данных для представления в таблице
- */
-public class FileInfoView {
+public class FileInfoView implements Comparable<FileInfoView> {
 
-    private static final String pattern = "dd-MM-yyyy HH:mm";
+    private FileInfo fileInfo;
 
-    private FileNameType fileNameType;
-    private Long size;
-    private String lastModified;
-    private String fileCreateDate;
-
-    public SimpleStringProperty getFileCreateDate() {
-        return new SimpleStringProperty(fileCreateDate);
+    public FileInfoView(FileInfo fileInfo) {
+        this.fileInfo = fileInfo;
     }
 
-    public SimpleStringProperty getLastModified() {
-        return new SimpleStringProperty(lastModified);
+    public SimpleObjectProperty<FileInfo> getFileInfoProperty() {
+        return new SimpleObjectProperty<>(fileInfo);
     }
 
-    public SimpleLongProperty getSize() {
-        return new SimpleLongProperty(size == null ? -1 : size);
+    public FileInfo getFileInfo() {
+        return fileInfo;
     }
 
-    public void setSize(long size) {
-        this.size = size;
+    public static Comparator<FileInfoView> comparatorByName(TableColumn.SortType sortType) {
+        Comparator<FileInfoView> result = (fileInfoView1, fileInfoView2) -> {
+            int compareByType = compareByType(fileInfoView1, fileInfoView2);
+            if(compareByType != 0) {
+                return compareByType;
+            }
+            String filePath1 = fileInfoView1.getFileInfo().getFileName();
+            String filePath2 = fileInfoView2.getFileInfo().getFileName();
+            if(sortType.equals(TableColumn.SortType.ASCENDING)) {
+                return filePath1.compareTo(filePath2);
+            } else {
+                return filePath2.compareTo(filePath1);
+            }
+        };
+        return result;
     }
 
+    public static Comparator<FileInfoView> comparatorBySize(TableColumn.SortType sortType) {
+        Comparator<FileInfoView> result = (fileInfoView1, fileInfoView2) -> {
+            int compareByType = compareByType(fileInfoView1, fileInfoView2);
+            if(compareByType != 0) {
+                return compareByType;
+            }
+            long size1 = fileInfoView1.getFileInfo().getSize();
+            long size2 = fileInfoView2.getFileInfo().getSize();
+            if(sortType.equals(TableColumn.SortType.ASCENDING)) {
+                return Long.compare(size1, size2);
+            } else {
+                return Long.compare(size2, size1);
+            }
+        };
+        return result;
+    }
 
-    public FileInfoView(FileNameType fileNameType, Long size, Long lastModified, Long createDate) {
-        this.fileNameType = fileNameType;
-        this.size = size;
-        String strDate = null;
-        if(lastModified != null) {
-            LocalDateTime dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(lastModified), ZoneId.systemDefault());
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
-            strDate = dateTime.format(formatter);
-            this.lastModified = strDate;
+    public static Comparator<FileInfoView> comparatorByLastModifiedDate(TableColumn.SortType sortType) {
+        Comparator<FileInfoView> result = (fileInfoView1, fileInfoView2) -> {
+            int compareByType = compareByType(fileInfoView1, fileInfoView2);
+            if(compareByType != 0) {
+                return compareByType;
+            }
+            long dateTime1 = fileInfoView1.getFileInfo().getLastModifiedDate();
+            long dateTime2 = fileInfoView2.getFileInfo().getLastModifiedDate();
+            if(sortType.equals(TableColumn.SortType.ASCENDING)) {
+                return Long.compare(dateTime1, dateTime2);
+            } else {
+                return Long.compare(dateTime2, dateTime1);
+            }
+        };
+        return result;
+    }
+
+    public static Comparator<FileInfoView> comparatorByCreateDate(TableColumn.SortType sortType) {
+        Comparator<FileInfoView> result = (fileInfoView1, fileInfoView2) -> {
+            int compareByType = compareByType(fileInfoView1, fileInfoView2);
+            if(compareByType != 0) {
+                return compareByType;
+            }
+            long dateTime1 = fileInfoView1.getFileInfo().getCreationDate();
+            long dateTime2 = fileInfoView2.getFileInfo().getCreationDate();
+            if(sortType.equals(TableColumn.SortType.ASCENDING)) {
+                return Long.compare(dateTime1, dateTime2);
+            } else {
+                return Long.compare(dateTime2, dateTime1);
+            }
+        };
+        return result;
+    }
+
+    private static int compareByType(FileInfoView fileInfoView1, FileInfoView fileInfoView2) {
+        FileInfo fileInfo1 = fileInfoView1.getFileInfo();
+        FileInfo fileInfo2 = fileInfoView2.getFileInfo();
+        if(fileInfo1.equals(FileInfo.PARENT_DIR)) {
+            return -1;
         }
-        this.lastModified = strDate;
-        String strCreateDate = null;
-        if(createDate != null) {
-            LocalDateTime dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(createDate), ZoneId.systemDefault());
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
-            strCreateDate = dateTime.format(formatter);
-            this.fileCreateDate = strCreateDate;
+        if(fileInfo2.equals(FileInfo.PARENT_DIR)) {
+            return 1;
         }
-        this.fileCreateDate = strCreateDate;
-    }
-
-    public String getName() {
-        return fileNameType.getFileName();
-    }
-
-    public void setName(String name) {
-        fileNameType.setFileName(name);
-    }
-
-    public FileType getType() {
-        return fileNameType.getFileType();
-    }
-
-    public FileNameType getFileNameType() {
-        return fileNameType;
-    }
-
-    public Long getSizeInLong() {
-        return size;
-    }
-
-    public LocalDateTime getLastModifiedInDate() {
-        if(lastModified == null) {
-            return null;
+        FileType type1 = fileInfoView1.getFileInfo().getType();
+        FileType type2 = fileInfoView2.getFileInfo().getType();
+        if(type1 == FileType.DIR && type2 == FileType.FILE) {
+            return -1;
         }
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
-        LocalDateTime localDateTime = LocalDateTime.parse(lastModified, formatter);
-        return localDateTime;
-    }
-
-    public LocalDateTime getCreateDate() {
-        if(fileCreateDate == null) {
-            return null;
+        if(type2 == FileType.DIR && type1 == FileType.FILE) {
+            return 1;
         }
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
-        LocalDateTime localDateTime = LocalDateTime.parse(fileCreateDate, formatter);
-        return localDateTime;
+        return 0;
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        FileInfoView that = (FileInfoView) o;
-
-        return fileNameType != null ? fileNameType.equals(that.fileNameType) : that.fileNameType == null;
-    }
-
-    @Override
-    public int hashCode() {
-        return fileNameType != null ? fileNameType.hashCode() : 0;
+    public int compareTo(FileInfoView other) {
+        FileInfo fileInfo1 = this.getFileInfo();
+        FileInfo fileInfo2 = other.getFileInfo();
+        if(fileInfo1.equals(FileInfo.PARENT_DIR)) {
+            return -1;
+        }
+        if(fileInfo2.equals(FileInfo.PARENT_DIR)) {
+            return 1;
+        }
+        FileType type1 = this.getFileInfo().getType();
+        FileType type2 = other.getFileInfo().getType();
+        if(type1 == FileType.DIR && type2 == FileType.FILE) {
+            return -1;
+        }
+        if(type2 == FileType.DIR && type1 == FileType.FILE) {
+            return 1;
+        }
+        return 0;
     }
 }

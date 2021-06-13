@@ -8,6 +8,8 @@ import javafx.scene.Scene;
 import javafx.scene.control.ButtonType;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
+import javafx.stage.Window;
 
 import java.io.IOException;
 
@@ -44,6 +46,11 @@ public class ConnectionStage extends Stage {
         setScene(scene);
         setResizable(false);
         sizeToScene();
+        initStyle(StageStyle.UTILITY);
         initModality(Modality.APPLICATION_MODAL);
+    }
+
+    public void setOwner(Window window) {
+        initOwner(window);
     }
 }

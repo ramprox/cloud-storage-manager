@@ -1,6 +1,6 @@
 package server.model;
 
-import server.Server;
+import server.util.ApplicationUtil;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -24,7 +24,7 @@ public class User {
     }
 
     public Path getHomeDir() {
-        return Paths.get(Server.SERVER_FOLDER, login);
+        return Paths.get(ApplicationUtil.SERVER_FOLDER, login);
     }
 
     public String getLogin() {
@@ -32,7 +32,7 @@ public class User {
     }
 
     public String getPrompt() {
-        return currentDir.toString().substring(
-                (Server.SERVER_FOLDER + File.separator).length());
+        return "~" + currentDir.toString().substring(
+                (ApplicationUtil.SERVER_FOLDER + File.separator + login).length());
     }
 }

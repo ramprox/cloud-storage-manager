@@ -1,24 +1,25 @@
-package server.handlers;
+package server.network.handlers;
 
-import interop.model.fileinfo.*;
-import interop.model.requests.sign.*;
-import interop.model.responses.*;
+import interop.Command;
+import interop.model.Message;
 import io.netty.channel.*;
-import server.Server;
+import server.network.Server;
 import server.model.User;
+import server.util.ApplicationUtil;
 import server.util.DBConnection;
 import java.io.*;
 import java.nio.file.Files;
-import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.Path;
 import java.sql.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Класс обработчика ответственный за аутентификацию и регистрацию клиента на сервере
  */
-public class SignHandler extends SimpleChannelInboundHandler<Sign> {
+public class SignHandler extends SimpleChannelInboundHandler<Message> {
 
-    private static final String SIGN_IN_QUERY = "SELECT COUNT(*) FROM users WHERE users.login = ? AND users.password = ?;";           // запрос на аутентификацию
+    private static final String SIGN_IN_QUERY = "SELECT login FROM users WHERE users.login = ? AND users.password = ?;";           // запрос на аутентификацию
     private static final String SIGN_UP_QUERY = "INSERT INTO users VALUES(?, ?);";                                                    // запрос на регистрацию
     private static final int codeExistUser = 1062;                    // код ошибки при регистрации с уже существующим в базе данных логином
 
@@ -26,12 +27,17 @@ public class SignHandler extends SimpleChannelInboundHandler<Sign> {
      * Обработка аутентификации клиента по логину и паролю. Если клиент проходит эту процедуру ему в ответ
      * отправляется список файлов текущей директории (по умолчанию домашней - корневой)
      * @param ctx контекст канала
-     * @param signData запрос на аутентификацию или регистрацию
+     * @param request запрос на аутентификацию или регистрацию
      */
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, Sign signData) {
-        String login = signData.getLogin();
-        String password = signData.getPassword();
+    protected void channelRead0(ChannelHandlerContext ctx, Message request) {
+        Command command = request.getCommand();
+        if(command != Command.SIGN_IN && command != Command.SIGN_UP) {
+            return;
+        }
+        String[] data = (String[]) request.getData();
+        String login = data[0];
+        String password = data[1];
         if(login.isEmpty() || password.isEmpty()) {
             sendErrorMessage(ctx,"Логин и пароль не должны быть пустыми.");
             return;
@@ -42,22 +48,22 @@ public class SignHandler extends SimpleChannelInboundHandler<Sign> {
         }
         try {
             Connection connection = DBConnection.getConnection();
-            PreparedStatement statement = signData instanceof SignIn ?
+            PreparedStatement statement = command == Command.SIGN_IN ?
                     connection.prepareStatement(SIGN_IN_QUERY) :
                     connection.prepareStatement(SIGN_UP_QUERY);
             statement.setString(1, login);
             statement.setString(2, password);
             int count = 0;
-            if(signData instanceof SignIn) {
+            if(command == Command.SIGN_IN) {
                 ResultSet result = statement.executeQuery();
                 if (result.next()) {
-                    count = result.getInt(1);
+                    count = 1;
                 }
             } else {
                 count = statement.executeUpdate();
             }
             if (count == 1) {
-                handleSuccessSigning(ctx, login);
+                handleSuccessSigning(ctx, command, login);
             } else {
                 sendErrorMessage(ctx, "Логин или пароль некорректные");
             }
@@ -78,14 +84,23 @@ public class SignHandler extends SimpleChannelInboundHandler<Sign> {
      * @throws IOException может возникнуть при создании директории для пользователя или получении списка
      *                     файлов из текущей директории
      */
-    private void handleSuccessSigning(ChannelHandlerContext ctx, String login) throws IOException {
+    private void handleSuccessSigning(ChannelHandlerContext ctx, Command command, String login) throws IOException {
         User user = new User(login);
         Server.subscribeUser(ctx.channel(), user);
         if (!Files.exists(user.getHomeDir())) {
             Files.createDirectory(user.getHomeDir());
         }
-        File[] files = user.getHomeDir().toFile().listFiles();
-        SignResp response = new SignResp(user.getPrompt(), getFileInfos(files));
+        List<Path> paths = Arrays.stream(user.getHomeDir().toFile().listFiles())
+                .map(file -> user.getHomeDir().resolve(file.getName()))
+                .collect(Collectors.toList());
+        Object[] data = new Object[2];
+        data[0] = user.getPrompt();
+        data[1] = ApplicationUtil.getFileInfos(paths);
+        ctx.pipeline().addLast(new CommandHandler());
+        ctx.pipeline().addLast(new UploadHandler());
+        ctx.pipeline().addLast(new DownloadHandler());
+        ctx.pipeline().remove(this);
+        Message response = new Message(command, data);
         ctx.writeAndFlush(response);
     }
 
@@ -95,32 +110,8 @@ public class SignHandler extends SimpleChannelInboundHandler<Sign> {
      * @param message сообщение
      */
     private void sendErrorMessage(ChannelHandlerContext ctx, String message) {
-        ErrorResponse response = new ErrorResponse(message);
+        Message response = new Message(Command.ERROR, message);
         ctx.writeAndFlush(response);
-    }
-
-    /**
-     * Получение списка файлов из домашней директории клиента и преобразование в тип FileInfo
-     * для последующей передачи клиенту
-     * @param files список преобразуемых файлов
-     * @return список преобразованных файлов типа FileInfo
-     */
-    private List<FileInfo> getFileInfos(File[] files) throws IOException {
-        List<FileInfo> result = new LinkedList<>();
-        if(files != null) {
-            for(File file : files) {
-                FileInfo fileInfo;
-                BasicFileAttributes attr = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
-                long createDate = attr.creationTime().toMillis();
-                if(file.isDirectory()) {
-                    fileInfo = new Directory(file.getName(), file.lastModified(), createDate);
-                } else {
-                    fileInfo = new RegularFile(file.getName(), file.lastModified(), file.length(), createDate);
-                }
-                result.add(fileInfo);
-            }
-        }
-        return result;
     }
 
     /**
@@ -145,10 +136,10 @@ public class SignHandler extends SimpleChannelInboundHandler<Sign> {
 
     /**
      * Происходит при дезактивации канала
-     * @param ctx
+     * @param ctx контекст канала
      */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-        Server.unsubscribeUser(ctx.channel());
+        System.out.println("Client disconnected: " + ctx.channel().remoteAddress());
     }
 }
