@@ -1,6 +1,6 @@
 package client.network;
 
-import client.interfaces.*;
+import client.ui.interfaces.*;
 import client.network.handlers.*;
 import client.network.handlers.SignHandler;
 import client.utils.ApplicationUtil;

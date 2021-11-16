@@ -1,9 +1,9 @@
-package client.controllers;
+package client.ui.controllers;
 
-import client.interfaces.SideEventsProcessable;
-import client.stages.*;
-import client.interfaces.Presentable;
-import client.model.*;
+import client.ui.interfaces.SideEventsProcessable;
+import client.ui.stages.*;
+import client.ui.interfaces.Presentable;
+import client.ui.model.*;
 import client.network.Client;
 import client.utils.ApplicationUtil;
 import interop.model.fileinfo.*;

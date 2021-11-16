@@ -7,7 +7,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.stream.ChunkedStream;
 import io.netty.handler.stream.ChunkedWriteHandler;
-import server.network.ChunkedFileReader;
+import server.network.service.ChunkedFileReader;
 import server.network.Server;
 import server.model.User;
 import server.util.ApplicationUtil;

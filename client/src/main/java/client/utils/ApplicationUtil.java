@@ -1,6 +1,6 @@
 package client.utils;
 
-import client.MainClientApp;
+import client.ui.MainClientApp;
 import javafx.scene.image.Image;
 
 /**

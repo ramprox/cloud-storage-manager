@@ -1,28 +1,20 @@
-package client;
+package client.ui;
 
-import client.controllers.MainWindowController;
-import client.stages.ProgressStage;
+import client.ui.controllers.MainWindowController;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
-import javafx.scene.*;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.stage.Stage;
 
-import java.io.ByteArrayOutputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Map;
-
 /**
- * Главный класс, содержащий точку входа в приложение
+ * Главный клиентский класс
  */
 public class MainClientApp extends Application {
 
     /**
      * Запуск JavaFX приложения
+     *
      * @param primaryStage главное окно приложения
      * @throws Exception может возникнуть при загрузке ресурса для главного окна
      */
@@ -37,13 +29,5 @@ public class MainClientApp extends Application {
         primaryStage.setTitle("Cloud storage manager");
         primaryStage.setScene(scene);
         primaryStage.show();
-    }
-
-    /**
-     * Точка входа в приложение
-     * @param args аргументы командной строки
-     */
-    public static void main(String[] args) throws IOException {
-        launch(args);
     }
 }

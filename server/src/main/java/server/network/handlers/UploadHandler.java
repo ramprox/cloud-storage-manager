@@ -21,7 +21,7 @@ public class UploadHandler extends SimpleChannelInboundHandler<Message> {
     private long fullQueueSize;                 // общий размер файлов
     private long generalCurPos;                 // позиция в общем загружаемом списке
     private long curPosForFile;
-    private String curDir;                      // Директория в которую копируются файлы
+    private Path uploadingDir;                      // Директория в которую копируются файлы
 
     /**
      * При добавлении в канал полчает пользователя
@@ -52,9 +52,9 @@ public class UploadHandler extends SimpleChannelInboundHandler<Message> {
 
     private void handleCommandUpload(ChannelHandlerContext ctx, Message requestResponse) throws IOException {
         Object[] data = (Object[])requestResponse.getData();
-        curDir = ((String) data[0]);
+        uploadingDir = Paths.get(((String) data[0]).replace(ApplicationUtil.USER_ROOT_SYMBOL, user.getHomeDir().toString()));
         List<FileInfo> fullList = (List<FileInfo>) data[1];
-        createDirsAndZeroSizeFiles(curDir, fullList);
+        createDirsAndZeroSizeFiles(uploadingDir, fullList);
         Queue<FileInfo> filteredFiles = fullList.stream()
                 .filter(fileInfo -> fileInfo.getType() != FileType.DIR && fileInfo.getSize() > 0)
                 .collect(Collectors.toCollection(ArrayDeque::new));
@@ -68,10 +68,9 @@ public class UploadHandler extends SimpleChannelInboundHandler<Message> {
             ctx.writeAndFlush(response);
         } else {
             Object[] dataResponse = new Object[2];
-            dataResponse[0] = curDir;
-            String curDirPath = curDir.replace(ApplicationUtil.USER_ROOT_SYMBOL, user.getHomeDir().toString());
-            List<Path> paths = Arrays.stream(Objects.requireNonNull(new File(curDirPath).listFiles()))
-                    .map(file -> Paths.get(curDirPath).resolve(file.getName()))
+            dataResponse[0] = Paths.get(ApplicationUtil.USER_ROOT_SYMBOL, user.getHomeDir().relativize(uploadingDir).toString());
+            List<Path> paths = Arrays.stream(Objects.requireNonNull(uploadingDir.toFile().listFiles()))
+                    .map(file -> uploadingDir.resolve(file.getName()))
                     .collect(Collectors.toList());
             dataResponse[1] = ApplicationUtil.getFileInfos(paths);
             Message response = new Message(Command.UPLOAD_DONE, data);
@@ -81,13 +80,13 @@ public class UploadHandler extends SimpleChannelInboundHandler<Message> {
 
     /**
      * Создание директорий и файлов с нулевым размером
-     * @param curDir директория куда загружаются файлы
+     * @param uploadingDir директория куда загружаются файлы
      * @param files список загружаемых файлов
      * @throws IOException может возникнуть при создании файлов
      */
-    private void createDirsAndZeroSizeFiles(String curDir, List<FileInfo> files) throws IOException {
+    private void createDirsAndZeroSizeFiles(Path uploadingDir, List<FileInfo> files) throws IOException {
         for(FileInfo fileInfo : files) {
-            Path path = Paths.get(curDir.replace(ApplicationUtil.USER_ROOT_SYMBOL, user.getHomeDir().toString())).resolve(fileInfo.getFileName());
+            Path path = uploadingDir.resolve(fileInfo.getFileName());
             if(fileInfo.getType() == FileType.DIR) {
                 path.toFile().mkdirs();
             } else if(fileInfo.getType() == FileType.FILE) {
@@ -110,7 +109,7 @@ public class UploadHandler extends SimpleChannelInboundHandler<Message> {
 
         FileInfo fileInfo = uploadingFiles.peek();
         String fileName = fileInfo.getFileName();
-        String path = user.getCurrentDir().resolve(fileName).toString();
+        String path = uploadingDir.resolve(fileName).toString();
         if(curPosForFile == 0) {
             fos = new FileOutputStream(path);
         }
@@ -133,10 +132,10 @@ public class UploadHandler extends SimpleChannelInboundHandler<Message> {
             ctx.writeAndFlush(percentResponse);
         } else {
             Object[] response = new Object[2];
-            response[0] = curDir;
-            String curDirPath = curDir.replace(ApplicationUtil.USER_ROOT_SYMBOL, user.getHomeDir().toString());
-            List<Path> paths = Arrays.stream(Objects.requireNonNull(new File(curDirPath).listFiles()))
-                    .map(file -> Paths.get(curDirPath).resolve(file.getName()))
+            response[0] = Paths.get(ApplicationUtil.USER_ROOT_SYMBOL,
+                    user.getHomeDir().relativize(uploadingDir).toString()).toString();
+            List<Path> paths = Arrays.stream(Objects.requireNonNull(uploadingDir.toFile().listFiles()))
+                    .map(file -> uploadingDir.resolve(file.getName()))
                     .collect(Collectors.toList());
             response[1] = ApplicationUtil.getFileInfos(paths);
             Message percentResponse = new Message(Command.UPLOAD_DONE, response);

@@ -1,6 +1,6 @@
 package client.network.handlers;
 
-import client.interfaces.Presentable;
+import client.ui.interfaces.Presentable;
 import client.network.Client;
 import interop.Command;
 import interop.model.Message;

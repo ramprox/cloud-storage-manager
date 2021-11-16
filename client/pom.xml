@@ -38,7 +38,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>client.MainClientApp</mainClass>
+                            <mainClass>client.ui.MainClientApp</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
@@ -51,7 +51,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>client.MainClientApp</mainClass>
+                            <mainClass>client.ui.MainClientApp</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>

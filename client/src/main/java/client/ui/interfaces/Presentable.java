@@ -1,4 +1,4 @@
-package client.interfaces;
+package client.ui.interfaces;
 
 import interop.model.fileinfo.FileInfo;
 

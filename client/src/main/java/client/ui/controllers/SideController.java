@@ -1,8 +1,9 @@
-package client.controllers;
+package client.ui.controllers;
 
-import client.interfaces.SideEventsProcessable;
-import client.model.FileInfoView;
+import client.ui.interfaces.SideEventsProcessable;
+import client.ui.model.FileInfoView;
 import client.utils.ApplicationUtil;
+import client.ui.service.FileInfoViewComparator;
 import com.sun.javafx.scene.control.skin.TableColumnHeader;
 import interop.model.fileinfo.FileInfo;
 import interop.model.fileinfo.FileType;
@@ -10,7 +11,6 @@ import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ObservableValueBase;
 import javafx.collections.FXCollections;
-import javafx.event.ActionEvent;
 import javafx.event.EventTarget;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
@@ -48,7 +48,7 @@ public class SideController implements Initializable {
     private static final String pattern = "dd-MM-yyyy HH:mm:ss";
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
 
-    private Comparator<FileInfoView> comparator = FileInfoView.comparatorByName(TableColumn.SortType.ASCENDING);
+    private Comparator<FileInfoView> comparator = FileInfoViewComparator.byName(TableColumn.SortType.ASCENDING);
     private SideEventsProcessable sideEventProcessable;
 
     public void setDrivesVisible(boolean value) {
@@ -56,7 +56,7 @@ public class SideController implements Initializable {
     }
 
     public void setDrives(File[] files) {
-        for(File file : files) {
+        for (File file : files) {
             drives.getItems().add(file.toString());
         }
     }
@@ -99,11 +99,11 @@ public class SideController implements Initializable {
             contextMenu.getItems().add(sizeMenuItem);
             row.contextMenuProperty().bind(
                     Bindings.when(row.emptyProperty())
-                            .then((ContextMenu)null)
+                            .then((ContextMenu) null)
                             .otherwise(contextMenu));
             sizeMenuItem.setOnAction(event -> {
                 FileInfo fileInfo = table.getSelectionModel().getSelectedItem().getFileInfo();
-                if(!fileInfo.equals(FileInfo.PARENT_DIR) && fileInfo.getType() == FileType.DIR) {
+                if (!fileInfo.equals(FileInfo.PARENT_DIR) && fileInfo.getType() == FileType.DIR) {
                     String dirPath = currentPath.getText() + File.separator + fileInfo.getFileName();
                     if (sideEventProcessable != null) {
                         sideEventProcessable.sizeClicked(SideController.this, dirPath);
@@ -124,15 +124,15 @@ public class SideController implements Initializable {
                 TableCell<FileInfoView, FileInfo> cell = new TableCell<FileInfoView, FileInfo>() {
                     @Override
                     protected void updateItem(FileInfo item, boolean empty) {
-                        if(item != null && !empty) {
+                        if (item != null && !empty) {
                             ImageView imageViewDir;
                             String text;
-                            if(item.equals(FileInfo.PARENT_DIR)) {
+                            if (item.equals(FileInfo.PARENT_DIR)) {
                                 text = PARENT_DIRECTORY;
                                 imageViewDir = new ImageView(ApplicationUtil.IMG_PARENT_DIR);
                             } else {
                                 text = item.getFileName();
-                                if(item.getType() == FileType.DIR) {
+                                if (item.getType() == FileType.DIR) {
                                     imageViewDir = new ImageView(ApplicationUtil.IMG_DIRECTORY);
                                 } else {
                                     imageViewDir = new ImageView(ApplicationUtil.IMG_FILE);
@@ -161,8 +161,8 @@ public class SideController implements Initializable {
             TableCell<FileInfoView, Long> cell = new TableCell<FileInfoView, Long>() {
                 @Override
                 protected void updateItem(Long item, boolean empty) {
-                    if(item != null && !empty) {
-                        if(item != -1) {
+                    if (item != null && !empty) {
+                        if (item != -1) {
                             setText(String.format(SIZE_FORMAT, item));
                         } else {
                             setText(null);
@@ -182,8 +182,8 @@ public class SideController implements Initializable {
             TableCell<FileInfoView, FileInfo> cell = new TableCell<FileInfoView, FileInfo>() {
                 @Override
                 protected void updateItem(FileInfo item, boolean empty) {
-                    if(item != null) {
-                        if(!item.equals(FileInfo.PARENT_DIR)) {
+                    if (item != null) {
+                        if (!item.equals(FileInfo.PARENT_DIR)) {
                             LocalDateTime dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(item.getLastModifiedDate()),
                                     ZoneId.systemDefault());
                             setText(dateTime.format(formatter));
@@ -222,19 +222,19 @@ public class SideController implements Initializable {
     }
 
     public void clickOnTable(MouseEvent mouseEvent) {
-        if(mouseEvent.getButton().equals(MouseButton.PRIMARY)) {
+        if (mouseEvent.getButton().equals(MouseButton.PRIMARY)) {
             EventTarget target = mouseEvent.getTarget();
-            if(target instanceof TableColumnHeader) {
-                handleClickOnTableColumnHeader((TableColumnHeader)target);
+            if (target instanceof TableColumnHeader) {
+                handleClickOnTableColumnHeader((TableColumnHeader) target);
                 return;
             }
-            if(mouseEvent.getClickCount() == 2) {
+            if (mouseEvent.getClickCount() == 2) {
                 FileInfoView fileInfoView = table.getSelectionModel().getSelectedItem();
-                if(fileInfoView != null) {
+                if (fileInfoView != null) {
                     FileInfo fileInfo = fileInfoView.getFileInfo();
-                    if(fileInfo.getType() == FileType.DIR) {
+                    if (fileInfo.getType() == FileType.DIR) {
                         String path;
-                        if(fileInfo.equals(FileInfo.PARENT_DIR)) {
+                        if (fileInfo.equals(FileInfo.PARENT_DIR)) {
                             path = getCurrentPath().getParent().toString();
                         } else {
                             path = getCurrentPath().resolve(fileInfo.getFileName()).toString();
@@ -252,17 +252,18 @@ public class SideController implements Initializable {
      * Обработка нажатой кнопки мыши на заголовке колонки TableColumnHeader стороны клиента
      * Происходит сортировка таблицы в зависимости от того, на заголовок какой колонки
      * нажали мышью
+     *
      * @param header заголовок колонки типа TableColumnHeader
      */
     private void handleClickOnTableColumnHeader(TableColumnHeader header) {
-        if(header.getTableColumn().equals(nameColumn)) {
-            comparator = FileInfoView.comparatorByName(nameColumn.getSortType());
-        } else if(header.getTableColumn().equals(sizeColumn)) {
-            comparator = FileInfoView.comparatorBySize(sizeColumn.getSortType());
-        } else if(header.getTableColumn().equals(lastModifiedColumn)) {
-            comparator = FileInfoView.comparatorByLastModifiedDate(lastModifiedColumn.getSortType());
-        } else if(header.getTableColumn().equals(createDateColumn)) {
-            comparator = FileInfoView.comparatorByCreateDate(createDateColumn.getSortType());
+        if (header.getTableColumn().equals(nameColumn)) {
+            comparator = FileInfoViewComparator.byName(nameColumn.getSortType());
+        } else if (header.getTableColumn().equals(sizeColumn)) {
+            comparator = FileInfoViewComparator.bySize(sizeColumn.getSortType());
+        } else if (header.getTableColumn().equals(lastModifiedColumn)) {
+            comparator = FileInfoViewComparator.byLastModifiedDate(lastModifiedColumn.getSortType());
+        } else if (header.getTableColumn().equals(createDateColumn)) {
+            comparator = FileInfoViewComparator.byCreateDate(createDateColumn.getSortType());
         }
         FXCollections.sort(table.getItems(), comparator);
     }
@@ -303,14 +304,14 @@ public class SideController implements Initializable {
     }
 
     public void driveChanged() {
-        if(sideEventProcessable != null) {
+        if (sideEventProcessable != null) {
             sideEventProcessable.driveChanged(drives.getSelectionModel().getSelectedItem());
         }
     }
 
     public void searchFile() {
         String fileName = searchTextField.getText();
-        if(!fileName.equals("") && sideEventProcessable != null) {
+        if (!fileName.equals("") && sideEventProcessable != null) {
             sideEventProcessable.searchFile(this, fileName);
         }
     }

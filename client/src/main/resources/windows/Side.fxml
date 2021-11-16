@@ -9,7 +9,7 @@
 <?import javafx.scene.control.ComboBox?>
 <VBox xmlns="http://javafx.com/javafx/8.0.112"
       xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="client.controllers.SideController">
+      fx:controller="client.ui.controllers.SideController">
     <padding>
         <Insets top="2" bottom="2" left="3"/>
     </padding>

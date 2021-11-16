@@ -21,7 +21,7 @@
 <GridPane
         xmlns="http://javafx.com/javafx/8.0.112"
         xmlns:fx="http://javafx.com/fxml/1"
-        fx:controller="client.controllers.MainWindowController"
+        fx:controller="client.ui.controllers.MainWindowController"
         minWidth="800" minHeight="600">
     <columnConstraints>
         <ColumnConstraints hgrow="ALWAYS"/>

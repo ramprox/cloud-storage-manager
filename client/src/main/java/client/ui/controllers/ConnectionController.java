@@ -1,6 +1,6 @@
-package client.controllers;
+package client.ui.controllers;
 
-import client.stages.ConnectionStage;
+import client.ui.stages.ConnectionStage;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;

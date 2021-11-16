@@ -1,7 +1,7 @@
-package client.stages;
+package client.ui.stages;
 
-import client.MainClientApp;
-import client.controllers.ConnectionController;
+import client.ui.MainClientApp;
+import client.ui.controllers.ConnectionController;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;

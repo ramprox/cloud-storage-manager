@@ -13,7 +13,7 @@
 <?import javafx.scene.layout.StackPane?>
 <VBox
         xmlns:fx="http://javafx.com/fxml/1"
-        fx:controller="client.controllers.ConnectionController">
+        fx:controller="client.ui.controllers.ConnectionController">
     <padding>
         <Insets left="10" top="10" right="10" bottom="10"/>
     </padding>

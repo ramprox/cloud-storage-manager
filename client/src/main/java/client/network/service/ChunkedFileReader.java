@@ -1,4 +1,4 @@
-package client.network;
+package client.network.service;
 
 import interop.Command;
 import interop.model.Message;
@@ -55,6 +55,6 @@ public class ChunkedFileReader implements ChunkedInput<Message> {
 
     @Override
     public long progress() {
-        return stream.length();
+        return stream.progress();
     }
 }

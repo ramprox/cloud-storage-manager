@@ -1,7 +1,7 @@
 package client.network.handlers;
 
-import client.interfaces.Presentable;
-import client.network.ChunkedFileReader;
+import client.ui.interfaces.Presentable;
+import client.network.service.ChunkedFileReader;
 import client.network.Client;
 import client.utils.ApplicationUtil;
 import interop.Command;

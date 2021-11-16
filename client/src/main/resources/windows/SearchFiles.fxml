@@ -5,7 +5,7 @@
 <?import javafx.scene.control.ListView?>
 <VBox
         xmlns:fx="http://javafx.com/fxml/1"
-        fx:controller="client.controllers.SearchController"
+        fx:controller="client.ui.controllers.SearchController"
         minWidth="800" minHeight="400">
     <padding>
         <Insets left="10" top="10" right="10" bottom="10"/>

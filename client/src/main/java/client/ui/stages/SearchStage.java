@@ -1,8 +1,8 @@
-package client.stages;
+package client.ui.stages;
 
-import client.MainClientApp;
-import client.controllers.SearchController;
-import client.model.FileInfoView;
+import client.ui.MainClientApp;
+import client.ui.controllers.SearchController;
+import client.ui.model.FileInfoView;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;

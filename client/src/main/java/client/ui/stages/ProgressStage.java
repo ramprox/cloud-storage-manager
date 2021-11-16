@@ -1,11 +1,10 @@
-package client.stages;
+package client.ui.stages;
 
-import client.MainClientApp;
-import client.controllers.ProgressController;
+import client.ui.MainClientApp;
+import client.ui.controllers.ProgressController;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import java.io.IOException;

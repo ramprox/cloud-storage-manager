@@ -1,6 +1,6 @@
-package client.interfaces;
+package client.ui.interfaces;
 
-import client.controllers.SideController;
+import client.ui.controllers.SideController;
 
 /**
  * Интерферйс для MainWindowController для обработки событий мыши или клавиатуры с SideController
