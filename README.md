@@ -4,6 +4,7 @@
    <div>
       Cloud Storage Manager - облачное хранилище, предназначенное для хранения, загрузки и скачивания файлов в/из удаленного сервера.
    </div>
+   <p></p>
    <div align="center">
       <a href="https://user-images.githubusercontent.com/73485824/173135598-14116915-ef29-4dd3-8e09-826875820991.png"><img src="https://user-images.githubusercontent.com/73485824/173135598-14116915-ef29-4dd3-8e09-826875820991.png"></a>
    </div>
