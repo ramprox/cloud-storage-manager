@@ -6,7 +6,7 @@
    </div>
    <p></p>
    <div align="center">
-      <a href="https://user-images.githubusercontent.com/73485824/173135598-14116915-ef29-4dd3-8e09-826875820991.png"><img src="https://user-images.githubusercontent.com/73485824/173135598-14116915-ef29-4dd3-8e09-826875820991.png"></a>
+      <a href="https://user-images.githubusercontent.com/73485824/173136229-54e4b77d-a8d9-43f2-ab1f-9d7deb96fde2.png"><img src="https://user-images.githubusercontent.com/73485824/173136229-54e4b77d-a8d9-43f2-ab1f-9d7deb96fde2.png"></a>
    </div>
 </details>
 <details><summary><h2>Стэк технологий</h2></summary>
