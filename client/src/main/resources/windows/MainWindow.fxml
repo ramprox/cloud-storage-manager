@@ -1,28 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.scene.control.Menu?>
-<?import javafx.scene.control.MenuBar?>
-<?import javafx.scene.control.MenuItem?>
-<?import javafx.scene.layout.ColumnConstraints?>
-<?import javafx.scene.layout.GridPane?>
-<?import javafx.scene.layout.RowConstraints?>
-<?import javafx.scene.control.TableView?>
-<?import javafx.scene.control.TableColumn?>
-<?import javafx.scene.control.SplitPane?>
-<?import javafx.scene.layout.VBox?>
-<?import javafx.scene.control.ComboBox?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.layout.Pane?>
-<?import javafx.scene.layout.HBox?>
-<?import javafx.scene.control.TextField?>
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.layout.AnchorPane?>
-<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
 <GridPane
         xmlns="http://javafx.com/javafx/8.0.112"
         xmlns:fx="http://javafx.com/fxml/1"
-        fx:controller="client.ui.controllers.MainWindowController"
-        minWidth="800" minHeight="600">
+        minWidth="800" minHeight="600" fx:controller="client.ui.controllers.MainWindowController">
     <columnConstraints>
         <ColumnConstraints hgrow="ALWAYS"/>
     </columnConstraints>
@@ -33,15 +16,17 @@
     </rowConstraints>
     <MenuBar>
         <Menu mnemonicParsing="false" text="Соединение">
-            <MenuItem fx:id="menuItemConnect" mnemonicParsing="false" text="Соединиться..."
-                      onAction="#connectClick"/>
-            <MenuItem fx:id="menuItemDisconnect" disable="true" mnemonicParsing="false" text="Отсоединиться..."
-                      onAction="#disconnectClick"/>
+            <MenuItem mnemonicParsing="false"
+                      text="Соединиться..." onAction="#connectClick"
+                      visible="${!controller.sign}"/>
+            <MenuItem mnemonicParsing="false"
+                      text="Отсоединиться..." onAction="#disconnectClick"
+                      visible="${controller.sign}"/>
         </Menu>
     </MenuBar>
     <SplitPane GridPane.columnIndex="0" GridPane.rowIndex="1" GridPane.vgrow="ALWAYS">
-        <fx:include fx:id="clientSide" source="Side.fxml"/>
-        <fx:include fx:id="serverSide" source="Side.fxml"/>
+        <fx:include fx:id="clientSide" source="ClientSide.fxml"/>
+        <fx:include fx:id="serverSide" source="ServerSide.fxml"/>
     </SplitPane>
     <GridPane GridPane.rowIndex="2" GridPane.hgrow="ALWAYS">
         <columnConstraints>
@@ -52,31 +37,31 @@
             <ColumnConstraints percentWidth="20"/>
         </columnConstraints>
         <AnchorPane GridPane.columnIndex="0">
-            <Button fx:id="newFile" text="Создать файл   Сtrl+N" onAction="#createFileClick"
+            <Button text="Создать файл   Сtrl+N" onAction="#createFileClick"
                     focusTraversable="false"
                     AnchorPane.leftAnchor="0" AnchorPane.bottomAnchor="0" AnchorPane.rightAnchor="0"
                     AnchorPane.topAnchor="0"/>
         </AnchorPane>
         <AnchorPane GridPane.columnIndex="1">
-            <Button fx:id="newDir" text="Создать папку   Сtrl+D" onAction="#createDirClick"
+            <Button text="Создать папку   Сtrl+D" onAction="#createDirClick"
                     focusTraversable="false"
                     AnchorPane.leftAnchor="0" AnchorPane.bottomAnchor="0" AnchorPane.rightAnchor="0"
                     AnchorPane.topAnchor="0"/>
         </AnchorPane>
         <AnchorPane GridPane.columnIndex="2">
-            <Button fx:id="rename" text="Переименовать   Сtrl+R" onAction="#renameFile"
+            <Button text="Переименовать   Сtrl+R" onAction="#renameFile"
                     focusTraversable="false"
                     AnchorPane.leftAnchor="0" AnchorPane.bottomAnchor="0" AnchorPane.rightAnchor="0"
                     AnchorPane.topAnchor="0"/>
         </AnchorPane>
         <AnchorPane GridPane.columnIndex="3">
-            <Button fx:id="copy" text="Копировать   F5" onAction="#copyClick"
+            <Button text="Копировать   F5" onAction="#copyClick"
                     focusTraversable="false"
                     AnchorPane.leftAnchor="0" AnchorPane.bottomAnchor="0" AnchorPane.rightAnchor="0"
                     AnchorPane.topAnchor="0"/>
         </AnchorPane>
         <AnchorPane GridPane.columnIndex="4">
-            <Button fx:id="delete" text="Удалить   Del" onAction="#deleteFile"
+            <Button text="Удалить   Del" onAction="#deleteFile"
                     focusTraversable="false"
                     AnchorPane.leftAnchor="0" AnchorPane.bottomAnchor="0" AnchorPane.rightAnchor="0"
                     AnchorPane.topAnchor="0"/>

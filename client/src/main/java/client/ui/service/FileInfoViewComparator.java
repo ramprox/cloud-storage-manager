@@ -2,12 +2,14 @@ package client.ui.service;
 
 import client.ui.model.FileInfoView;
 import javafx.scene.control.TableColumn;
+import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
 
+@Component
 public class FileInfoViewComparator {
 
-    public static Comparator<FileInfoView> byName(TableColumn.SortType sortType) {
+    public Comparator<FileInfoView> byName(TableColumn.SortType sortType) {
         Comparator<FileInfoView> result = defaultCompare();
         if(sortType == TableColumn.SortType.ASCENDING) {
             return result.thenComparing(fileInfoView -> fileInfoView.getFileInfo().getFileName());
@@ -17,7 +19,7 @@ public class FileInfoViewComparator {
                 .reversed());
     }
 
-    public static Comparator<FileInfoView> bySize(TableColumn.SortType sortType) {
+    public Comparator<FileInfoView> bySize(TableColumn.SortType sortType) {
         Comparator<FileInfoView> result = defaultCompare();
         if(sortType == TableColumn.SortType.ASCENDING) {
             return result.thenComparingLong(fileInfoView ->
@@ -28,7 +30,7 @@ public class FileInfoViewComparator {
                 .reversed());
     }
 
-    public static Comparator<FileInfoView> byLastModifiedDate(TableColumn.SortType sortType) {
+    public Comparator<FileInfoView> byLastModifiedDate(TableColumn.SortType sortType) {
         Comparator<FileInfoView> result = defaultCompare();
         if(sortType == TableColumn.SortType.ASCENDING) {
             return result.thenComparingLong(fileInfoView ->
@@ -39,7 +41,7 @@ public class FileInfoViewComparator {
                 .reversed());
     }
 
-    public static Comparator<FileInfoView> byCreateDate(TableColumn.SortType sortType) {
+    public Comparator<FileInfoView> byCreateDate(TableColumn.SortType sortType) {
         Comparator<FileInfoView> result = defaultCompare();
         if(sortType == TableColumn.SortType.ASCENDING) {
             return result.thenComparingLong(fileInfoView ->
@@ -50,7 +52,7 @@ public class FileInfoViewComparator {
                 .reversed());
     }
 
-    private static Comparator<FileInfoView> defaultCompare() {
+    private Comparator<FileInfoView> defaultCompare() {
         return Comparator.<FileInfoView>naturalOrder()
                 .thenComparing(fileInfoView ->
                         fileInfoView.getFileInfo().getType());

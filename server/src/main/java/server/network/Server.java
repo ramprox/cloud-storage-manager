@@ -1,87 +1,84 @@
 package server.network;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.*;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.serialization.*;
-import server.network.handlers.*;
-import server.model.User;
-import server.util.*;
-import java.io.*;
-import java.sql.SQLException;
-import java.util.concurrent.ConcurrentHashMap;
+import io.netty.channel.ChannelFuture;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import server.exceptions.HandleException;
+
+import javax.annotation.PreDestroy;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
  * Главный класс, запускающий работу сервера
  */
+@Service
 public class Server {
 
-    private static final ConcurrentHashMap<Channel, User> users = new ConcurrentHashMap<>();
+    private static final Logger logger = LoggerFactory.getLogger(Server.class);
 
-    public static User getUserByLogin(String login) {
-        for(ConcurrentHashMap.Entry<Channel, User> entry : users.entrySet()) {
-            if(entry.getValue().getLogin().equals(login)) {
-                return entry.getValue();
-            }
-        }
-        return null;
-    }
+    private final ServerBootstrap serverBootstrap;
 
-    public static User getUserByChannel(Channel channel) {
-        return users.get(channel);
-    }
+    private final String rootFolder;
 
-    public static void subscribeUser(Channel channel, User user) {
-        users.put(channel, user);
-    }
+    private Thread thread;
 
-    public static void unsubscribeUser(Channel channel) {
-        if(users.remove(channel) != null) {
-            System.out.println("Client disconnected: " + channel.remoteAddress());
-        }
+    public Server(ServerBootstrap serverBootstrap, @Value("${rootFolder}") String rootFolder) {
+       this.serverBootstrap = serverBootstrap;
+       this.rootFolder = rootFolder;
     }
 
     /**
-     * Запуск сервера
+     * Запуск
      */
-    public Server() {
-        EventLoopGroup auth = new NioEventLoopGroup(1);
-        EventLoopGroup worker = new NioEventLoopGroup();
+    public void start() {
+        thread = Thread.currentThread();
+        createFolder();
+        starting();
+    }
+
+    private void starting() {
         try {
-            createFolder();
-            ServerBootstrap bootstrap = new ServerBootstrap();
-            bootstrap.group(auth, worker)
-                    .channel(NioServerSocketChannel.class)
-                    .localAddress(ApplicationUtil.PORT)
-                    .childHandler(new ChannelInitializer<Channel>() {
-                        @Override
-                        protected void initChannel(Channel channel) {
-                            channel.pipeline().addLast(new ObjectEncoder());
-                            channel.pipeline().addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(ClassLoader.getSystemClassLoader())));
-                            channel.pipeline().addLast(new SignHandler());
-                        }
-                    });
-            ChannelFuture future = bootstrap.bind().sync();
-            System.out.println("Server started");
-            DBConnection.getConnection();
+            ChannelFuture future = serverBootstrap.bind().sync();
+            int port = ((InetSocketAddress)future.channel().localAddress()).getPort();
+            logger.info("Сервер запустился на порту: {}", port);
             future.channel().closeFuture().sync();
         } catch (InterruptedException ex) {
-            ex.printStackTrace();
-        } catch (SQLException ex) {
-            System.out.println("Соединение с базой данных разорвано");
+            logger.info("Работа сервера прервана");
         } finally {
-            System.out.println("Server closed");
-            DBConnection.closeConnection();
-            auth.shutdownGracefully();
-            worker.shutdownGracefully();
+            serverBootstrap.config().group().shutdownGracefully();
+            serverBootstrap.config().childGroup().shutdownGracefully();
+            logger.info("Сервер остановлен");
         }
     }
 
     /**
-     * Создание корневой директории сервера
+     * Остановка
+     */
+    @PreDestroy
+    public void close() {
+        thread.interrupt();
+    }
+
+    /**
+     * Создание корневой директории
      */
     private void createFolder() {
-        new File(ApplicationUtil.SERVER_FOLDER).mkdir();
+        try {
+            Path rootFolderPath = Paths.get(rootFolder);
+            if(!Files.exists(rootFolderPath)) {
+                Files.createDirectory(rootFolderPath);
+            }
+        } catch (IOException ex) {
+            logger.error("Не могу создать директорию {}. {}", rootFolder, ex.getMessage());
+            throw new HandleException(ex.getMessage());
+        }
     }
+
 }

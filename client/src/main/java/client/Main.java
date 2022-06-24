@@ -1,7 +1,7 @@
 package client;
 
 import client.ui.MainClientApp;
-
+import javafx.application.Application;
 public class Main {
 
     /**
@@ -10,6 +10,6 @@ public class Main {
      * @param args аргументы командной строки
      */
     public static void main(String[] args) {
-        MainClientApp.launch(args);
+        Application.launch(MainClientApp.class, args);
     }
 }
