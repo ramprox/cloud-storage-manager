@@ -1,6 +1,6 @@
 package client.ui.model;
 
-import interop.model.fileinfo.FileInfo;
+import interop.dto.fileinfo.FileInfo;
 import javafx.beans.property.SimpleObjectProperty;
 
 public class FileInfoView implements Comparable<FileInfoView> {

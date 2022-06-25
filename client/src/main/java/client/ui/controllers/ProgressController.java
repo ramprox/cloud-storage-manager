@@ -5,7 +5,7 @@ import javafx.scene.control.*;
 import java.text.NumberFormat;
 
 /**
- * Класс окна, в котором отображается ход загрузки или скачивания (upload и download)
+ * Контроллер окна, в котором отображается ход загрузки или скачивания (upload и download)
  */
 public class ProgressController {
     @FXML private Label message;
