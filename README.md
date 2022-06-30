@@ -17,7 +17,6 @@
       <li>Spring</li>
       <li>MySQL 5.7.11</li>
       <li>Netty 4.1.59.Final</li>
-      <li>Driver JDBC MySQL v.8.0.23</li>
    </ul>
 </details>
 <details><summary><h2>Функциональность</h2></summary>
