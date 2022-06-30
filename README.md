@@ -14,7 +14,7 @@
       <li>JDK 1.8</li>
       <li>Maven</li>
       <li>JavaFX</li>
-      <li>Spring</li>
+      <li>Spring Core</li>
       <li>MySQL 5.7.11</li>
       <li>Netty 4.1.59.Final</li>
    </ul>
